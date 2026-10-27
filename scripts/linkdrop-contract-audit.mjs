@@ -41,6 +41,7 @@ const mePayoutRoute = requireFile('src/app/api/me/payouts/route.ts');
 const adminFoundation = requireFile('supabase/migrations/0004_admin_access_foundation.sql');
 const rewardsFoundation = requireFile('supabase/migrations/0006_rewards_and_payouts.sql');
 const pivotFoundation = requireFile('supabase/migrations/0007_anonymous_pivot.sql');
+const accountsFoundation = requireFile('supabase/migrations/0008_accounts_leaderboard.sql');
 const publicSubmitRoute = requireFile('src/app/api/public/submit/route.ts');
 const reportRoute = requireFile('src/app/api/report/route.ts');
 const adminReportsRoute = requireFile('src/app/api/admin/reports/route.ts');
@@ -51,6 +52,18 @@ const sitemapRoute = requireFile('src/app/sitemap.ts');
 const robotsRoute = requireFile('src/app/robots.ts');
 const seedDemo = requireFile('scripts/seed-demo.mjs');
 const removeDemo = requireFile('scripts/remove-demo.mjs');
+// Phase 2: accounts, leaderboard, promotions.
+const authRoute = requireFile('src/app/api/auth/username/route.ts');
+const leaderboardPage = requireFile('src/app/leaderboard/page.tsx');
+const mePromotionsRoute = requireFile('src/app/api/me/promotions/route.ts');
+const adminPromotionsRoute = requireFile('src/app/api/admin/promotions/route.ts');
+const promotionQueue = requireFile('src/components/console/promotion-queue.tsx');
+const homePage = requireFile('src/app/page.tsx');
+const liveLib = requireFile('src/lib/live.ts');
+const sponsorComponent = requireFile('src/components/sponsor.tsx');
+const loginPage = requireFile('src/app/login/page.tsx');
+const dashboardPage = requireFile('src/app/dashboard/page.tsx');
+const siteLib = requireFile('src/lib/site.ts');
 
 const sqlHasTable = (name) => new RegExp(`create\\s+table(?:\\s+if\\s+not\\s+exists)?\\s+(?:public\\.)?${name}\\b`, 'i').test(allSql);
 const sqlHasFunction = (name) => new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+(?:public\\.)?${name}\\b`, 'i').test(allSql);
@@ -167,6 +180,89 @@ if (seedDemo.trim() && !/is_demo:\s*true|is_demo: true/.test(seedDemo)) {
 if (mePayoutRoute && !/requireUser/.test(mePayoutRoute)) {
   report('FAIL', 'Contributor payout route does not visibly call requireUser.');
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 invariants (0008): username accounts, count-based leaderboard, and
+// the owner-reviewed promotion flow. NO points earning anywhere.
+// ---------------------------------------------------------------------------
+if (!accountsFoundation.trim()) {
+  report('FAIL', '0008_accounts_leaderboard.sql is missing; accounts/leaderboard/promotions are not backed by SQL.');
+} else {
+  for (const fn of ['leaderboard_top', 'public_stats', 'contributor_rank', 'submit_promotion', 'admin_promotion_decide', 'active_promotion']) {
+    if (!sqlHasFunction(fn)) report('FAIL', `Phase-2 RPC ${fn} not found in schema/migrations.`);
+  }
+  if (!sqlHasTable('promotion_requests')) report('FAIL', 'No CREATE TABLE found for promotion_requests.');
+  if (!/profiles_username_unique_idx/.test(accountsFoundation)) report('FAIL', '0008 does not create the unique username index; duplicate usernames could be created under race.');
+  if (!/submit_public_link[\s\S]*p_submitter_id/.test(accountsFoundation.replace(/\s+/g, ' '))) {
+    report('FAIL', '0008 does not extend submit_public_link with optional account attribution (p_submitter_id).');
+  }
+  if (!/promotion_requests[\s\S]{0,80}enable\s+row\s+level\s+security/.test(accountsFoundation)) {
+    report('FAIL', 'promotion_requests has no RLS enabled; client policies could bypass the owner queue.');
+  }
+  if (!/revoke all on function/.test(accountsFoundation)) {
+    report('FAIL', 'Phase-2 RPCs are not explicitly revoked from public roles.');
+  }
+  if (!/contributor_rank/.test(accountsFoundation.split('create or replace function public.submit_promotion')[1] ?? '')) {
+    report('FAIL', 'submit_promotion does not enforce eligibility through contributor_rank SQL-side.');
+  }
+  const activePromoSection = accountsFoundation.split('create or replace function public.active_promotion')[1] ?? '';
+  if (!/contributor_rank/.test(activePromoSection)) {
+    report('FAIL', 'active_promotion does not re-verify top-of-leaderboard status; expired winners could render forever.');
+  }
+}
+if (siteLib.trim() && (!/PROMO_TOP_N|PROMO_MIN_LINKS/.test(siteLib) || !/NO points/i.test(siteLib))) {
+  report('WARN', 'src/lib/site.ts should document the phase-2 policy (top N, minimum links, no points earning).');
+}
+if (authRoute.trim()) {
+  if (!/honeypotTripped/.test(authRoute)) report('FAIL', 'Auth route has no honeypot check; bots can mass-register usernames.');
+  if (!/consumeRateLimit/.test(authRoute)) report('FAIL', 'Auth route has no rate limiting; username namespace can be squatted at scale.');
+  if (!/clientIpHash/.test(authRoute)) report('FAIL', 'Auth route does not hash IPs for username_created_ip_hash.');
+  if (!/turnstileOk/.test(authRoute)) report('FAIL', 'Auth route does not run the (optional) Turnstile check.');
+  if (!/ACCOUNT_AUTH_EMAIL_SUFFIX/.test(authRoute)) report('FAIL', 'Auth route does not synthesize the internal auth email alias.');
+  if (!/deleteUser/.test(authRoute)) report('FAIL', 'Auth route does not compensate failed profile inserts by deleting the orphan auth user.');
+  if (!/RESERVED_USERNAMES/.test(authRoute)) report('FAIL', 'Auth route does not block reserved usernames.');
+}
+if (loginPage.trim()) {
+  if (!/\/api\/auth\/username/.test(loginPage)) report('FAIL', 'Login page no longer talks to the username API; accounts would break.');
+  if (/auth\.signUp/.test(loginPage)) report('FAIL', 'Login page still calls the legacy email signUp client-side; phase-2 signup must go through the server route.');
+}
+if (dashboardPage.trim() && /reward-math|availablePoints|requestPayout/.test(dashboardPage)) {
+  report('FAIL', 'Dashboard still shows the old points/payout UI; the confirmed phase-2 model has NO points earning.');
+}
+if (leaderboardPage.trim()) {
+  if (!/fetchLeaderboard/.test(leaderboardPage)) report('FAIL', 'Leaderboard page does not read the SQL-backed leaderboard RPC.');
+  if (!/generateMetadata|export const metadata/.test(leaderboardPage)) report('WARN', 'Leaderboard page has no metadata; it is a public SEO surface.');
+  if (/isDemo|is_demo/.test(leaderboardPage)) report('WARN', 'Leaderboard page references demo rows directly; trust only the RPC.');
+}
+if (mePromotionsRoute.trim()) {
+  if (!/requireUser/.test(mePromotionsRoute)) report('FAIL', 'Me promotions route does not visibly call requireUser.');
+  if (!/consumeRateLimit/.test(mePromotionsRoute)) report('FAIL', 'Me promotions route has no rate limiting.');
+  if (!/submit_promotion/.test(mePromotionsRoute)) report('FAIL', 'Me promotions route bypasses the DB-enforced eligibility RPC.');
+}
+if (adminPromotionsRoute.trim()) {
+  if (!/requireAdmin/.test(adminPromotionsRoute)) report('FAIL', 'Admin promotions route does not visibly call requireAdmin.');
+  if (!/admin_promotion_decide/.test(adminPromotionsRoute)) report('FAIL', 'Admin promotions route does not call the deciding RPC.');
+}
+if (promotionQueue.trim() && !/\/api\/admin\/promotions/.test(promotionQueue)) {
+  report('FAIL', 'Promotion console component is not wired to the admin promotions API.');
+}
+if (homePage.trim()) {
+  if (!/fetchPublicStats/.test(homePage)) report('FAIL', 'Home page does not render real live counters (public_stats).');
+  if (!/SponsorSlot|sponsor/i.test(homePage)) report('FAIL', 'Home page has no sponsor slot / leaderboard-promo CTA.');
+  if (/\bpoints\b|\bpts\b/i.test(homePage.replace(/pointless|viewpoints/g, ''))) {
+    report('WARN', 'Home page mentions points/pts; the phase-2 model has no points economy.');
+  }
+}
+if (liveLib.trim()) {
+  if ((sponsorComponent === '' || !/nofollow sponsored/.test(sponsorComponent))) report('WARN', 'Sponsor links are not marked nofollow/sponsored; paid attribution guidance for search engines.');
+  if (!/active_promotion/.test(liveLib)) report('FAIL', 'Sponsor slot does not read the eligibility-checked active_promotion RPC.');
+}
+if (publicSubmitRoute.trim() && !/p_submitter_id|optionalSubmitterId/.test(publicSubmitRoute)) {
+  report('WARN', 'Public submit route does not attach optional account attribution; signed-in submissions would never count.');
+}
+if (sitemapRoute.trim() && !/leaderboard/.test(sitemapRoute)) {
+  report('WARN', 'Sitemap does not include /leaderboard; an indexable phase-2 surface is missing from discovery.');
+}
 if (payoutRoute && !/requireAdmin/.test(payoutRoute)) {
   report('FAIL', 'Admin payouts route does not visibly call requireAdmin.');
 }
@@ -200,6 +296,7 @@ if (envExample === null) {
   if (!envExample.includes('SUPABASE_SERVICE_ROLE_KEY')) report('WARN', '.env.example does not document SUPABASE_SERVICE_ROLE_KEY. Check server configuration and setup docs.');
   if (!envExample.includes('REDEMPTIONS_ENABLED')) report('WARN', '.env.example does not document REDEMPTIONS_ENABLED; the dormant-payouts kill switch is undocumented.');
   if (!envExample.includes('TURNSTILE_SECRET')) report('WARN', '.env.example does not document TURNSTILE_SECRET; the optional bot check is undocumented.');
+  if (!envExample.includes('NEXT_PUBLIC_TURNSTILE_SITE_KEY')) report('WARN', '.env.example does not document NEXT_PUBLIC_TURNSTILE_SITE_KEY; the captcha widget key is undocumented.');
   if (!envExample.includes('IP_HASH_SALT')) report('WARN', '.env.example does not document IP_HASH_SALT; the dedicated IP-hash salt is undocumented.');
 }
 

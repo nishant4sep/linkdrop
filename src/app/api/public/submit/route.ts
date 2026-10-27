@@ -1,6 +1,7 @@
 import { db, jsonError, normalizeInstagramPost, validateResourceUrl } from '@/lib/server';
 import { consumeRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIpHash, honeypotTripped } from '@/lib/ip';
+import { turnstileOk } from '@/lib/turnstile';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,21 +10,34 @@ const ALLOWED_TYPES = new Set([
   'preset', 'template', 'pdf', 'document', 'project_file', 'software', 'course', 'tutorial', 'other',
 ]);
 
-async function turnstileOk(token: unknown): Promise<boolean> {
-  const secret = process.env.TURNSTILE_SECRET?.trim();
-  if (!secret) return true; // not configured → skipped for now (phase-2 switch)
-  if (typeof token !== 'string' || !token) return false;
-
+/**
+ * Optional attribution: when the browser sends a session token, the submission
+ * is published exactly the same way, but credited to the account (which makes
+ * it count on the live leaderboard). A broken/invalid token fails loudly so the
+ * contributor never silently loses credit.
+ */
+async function optionalSubmitterId(request: Request): Promise<{ id: string | null; error?: string; status?: number }> {
+  const match = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i);
+  if (!match) return { id: null };
   try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret, response: token }),
-    });
-    const payload = await response.json() as { success?: boolean };
-    return payload.success === true;
+    const { data, error } = await db().auth.getUser(match[1]);
+    if (error || !data.user) return { id: null, error: 'Your session expired — sign in again to keep earning credit.', status: 401 };
+
+    const { data: profile, error: profileError } = await db()
+      .from('profiles')
+      .select('account_status, username')
+      .eq('user_id', data.user.id)
+      .maybeSingle();
+    if (profileError) return { id: null, error: 'Your account could not be verified. Retry shortly.', status: 503 };
+    if (profile && profile.account_status !== 'active') {
+      return { id: null, error: 'This account is not active.', status: 403 };
+    }
+    if (!profile?.username) {
+      return { id: null, error: 'This account has no username yet — leaderboard credit will not attach. Ask the owner to add one.', status: 403 };
+    }
+    return { id: data.user.id };
   } catch {
-    return false; // configured but unreachable → fail closed
+    return { id: null, error: 'Your account could not be verified. Retry shortly.', status: 503 };
   }
 }
 
@@ -64,6 +78,11 @@ export async function POST(request: Request) {
     return jsonError('Limiting service is unavailable. Please retry shortly.', 503);
   }
 
+  const submitter = await optionalSubmitterId(request);
+  if (submitter.error) {
+    return jsonError(submitter.error, submitter.status ?? 401);
+  }
+
   const post = normalizeInstagramPost(input['postUrl']);
   const resourceUrl = validateResourceUrl(input['resourceUrl']);
   const type = typeof input['resourceType'] === 'string' ? input['resourceType'] : '';
@@ -86,6 +105,7 @@ export async function POST(request: Request) {
       p_resource_type: type,
       p_description: description || null,
       p_submitter_ip_hash: ipHash,
+      p_submitter_id: submitter.id,
     });
 
     if (error) {
@@ -96,7 +116,7 @@ export async function POST(request: Request) {
       return jsonError('The link could not be published right now.', 500);
     }
 
-    const result = data as { status?: string; resourceId?: string } | null;
+    const result = data as { status?: string; resourceId?: string; attributed?: boolean | null } | null;
     if (result?.status === 'already_listed') {
       return jsonError('That resource is already listed for this post.', 409);
     }
@@ -108,9 +128,12 @@ export async function POST(request: Request) {
       ok: true,
       status: 'published',
       resourceId: result?.resourceId ?? null,
+      attributed: result?.attributed === true,
       postCode: post.postCode,
       postUrl: post.canonicalUrl,
-      message: 'Published. It is live on that post\u2019s page right now—thanks for sharing!',
+      message: result?.attributed === true
+        ? 'Published live, and it counts toward your leaderboard rank. Nice one!'
+        : 'Published. It is live on that post\u2019s page right now—thanks for sharing!',
     }, {
       status: 201,
       headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },

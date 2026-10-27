@@ -50,17 +50,36 @@ Implemented in phase 1:
 - `scripts/seed-demo.mjs` / `scripts/remove-demo.mjs` (`npm run demo:seed` / `demo:remove`): flagged demo fixtures (`is_demo = true`, `example.com` URLs, `demo-fingerprint-*` hashes) including one pre-quarantined resource for the Reports tab; removal is FK-safe and idempotent.
 - `scripts/demo-names.json`: phase-2 demo usernames (leaderboard material; not consumed by any route yet).
 
-Explicitly NOT implemented yet (do not claim otherwise in SEO or meta):
+## Phase 2 — username accounts, live leaderboard, earned promo slots (2026-10-27)
 
-- Turnstile is optional and OFF until `TURNSTILE_SECRET` is set — anonymous submissions currently rely on honeypot + rate limits only.
+Owner decision first: **no points, no rewards earning.** The loyalty economy is count-based: contributors ranked by how many of their links are genuine AND currently live; the top of the board earns the right to paste their own promotion.
+
+Implemented in phase 2:
+
+- `supabase/migrations/0008_accounts_leaderboard.sql`: `profiles.username` (`^[a-z0-9_]{3,20}$`, unique, NULL-tolerant for legacy accounts) + `username_created_ip_hash`/`_created_at`; leaderboard index `resources_submitter_status_idx`; `leaderboard_top` (live-only counts, tie-break earliest genuine link), `public_stats` (home counters, demo rows excluded), `contributor_rank` (rank + eligibility `rank ≤ top_n AND links ≥ min`), `submit_promotion` (eligibility enforced IN SQL, one pending/one approved per user via partial unique indexes), `admin_promotion_decide` (approve 24h window / reject / retire / extend + audit trail + auto-close of expired rows), `active_promotion` (renders ONLY while the winner is still eligible and in-window). All security definer, revoked from `public/anon/authenticated`, granted to `service_role`.
+- `submit_public_link` gains optional `p_submitter_id`, validated against an active username profile; submissions record `source = 'account'` and resources record `submitted_by`. The old 7-arg signature is dropped (single canonical signature).
+- `src/app/api/auth/username/route.ts`: signup + login without email — the auth alias is `<username>@users.linkdrop.internal`, recomputed at login so no username directory is needed for authentication. Honeypot, per-IP limits (signup 5/h, login 15/h), reserved-name lockout, Turnstile fail-closed when configured, username suggestions on taken names, compensating `deleteUser` if the profile insert fails. Legacy **email** accounts (the owner's) sign in through the same endpoint by including an `@` identifier.
+- `/login` rebuild: two tabs (Sign in / Create account), honeypot + suggestions chips + optional Turnstile widget, session adopted client-side via `setSession`.
+- `/dashboard` rebuild (account page): live rank card (live links / position / promo eligibility), "your submitted links", the promotion request form visible only to eligible users, guidelines, request history with owner notes. The points/payout UI was removed from the page (machinery stays dormant server-side).
+- `/leaderboard` server page (~15 s freshness): real ranked names, honest empty state, rules card, current sponsor. `/api/leaderboard`-style access is SQL-only — the page reads `leaderboard_top` through the service role.
+- Home page (`src/app/page.tsx`): server-rendered live counters (`public_stats`: active resources / posts covered) + sponsor slot under the search box; landing pages (`/r/[code]`) carry a slim sponsor strip. Sponsor links are `rel="nofollow sponsored"`.
+- `src/app/api/me/promotions/route.ts` (GET eligibility + history; POST request, rate-limited 3/day, DB-enforced), `src/app/api/admin/promotions/route.ts` (GET queue with usernames + ranks; PATCH via `admin_promotion_decide`), console **Promotions** tab (`src/components/console/promotion-queue.tsx`).
+- `submit-public.tsx` attaches the bearer token when a session exists — signed-in publishing is identical instant-publish, plus credit.
+- Sitemap gains `/leaderboard`; robots unchanged (`/login`, `/dashboard` stay out; `/leaderboard` indexable).
+
+Anti-fake/rate policy: stats and the leaderboard exclude `is_demo` rows; the sponsor slot re-verifies top-of-board per render; promo requests are 3/day/user; approval grants a 24 h window (extendable).
+
+## Explicitly NOT implemented yet (do not claim otherwise in SEO or meta)
+
+- Turnstile is optional and OFF until `TURNSTILE_SECRET` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` are set — anonymous submissions/signups currently rely on honeypot + rate limits only.
 - The ad gate before revealing links was deliberately NOT built in phase 1; the shape (skippable reveal vs. inline sponsored slot) is an owner decision still pending.
-- Usernames/accounts for contributors, captcha'd signup, loyalty points, leaderboard, live counters, promoted slots: phase 2/3. There are no live counters anywhere in the UI that could mislead.
+- Usernames/accounts for contributors, captcha'd signup, leaderboard, live counters, and promoted slots now EXIST (phase 2, see above) — in the count-based, no-points form the owner confirmed. Still NOT built: self-serve ad buying (the slot is earned + owner-approved only), appeal automation, and link-content verification (no destination is fetched server-side — SSRF by design stays out).
 - Link-content verification (none of the destinations are fetched server-side — SSRF by design stays out).
 
-Dormant-by-design (kept, not deleted, for the phase-2 loyalty model):
+Dormant-by-design (kept, not deleted, for the old points economy):
 
-- Account surfaces: `/login`, `/dashboard` (contributor workspace), `/api/submit`, `/api/me/*`. No public links point at them and `/login`, `/dashboard` are robots-disallowed.
-- Console tabs `moderation`, `contributors`, `payouts` render with a "dormant" label; Reports is the only active queue under anonymous publishing.
+- `/api/submit` (the old account-based submission endpoint), `/api/me/rewards`, `/api/me/payouts`, and the reward ledger machinery. No public links point at them; nothing in the phase-2 UI references points.
+- Console tabs `moderation`, `contributors`, `payouts` render with a "dormant" label; **Reports + Promotions** are the active queues.
 - Historical phase docs (P1–P5, RELEASE_PLAN) moved to `docs/archive/`.
 
 Post-pivot cleanup (same date): the public home page no longer references sessions at all — no sign-in link, no session-loading state (faster first paint); the console link is not exposed publicly; `/login` is robots-disallowed.

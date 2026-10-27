@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { db } from '@/lib/server';
+import { fetchActivePromotion } from '@/lib/live';
+import { SponsorStrip } from '@/components/sponsor';
 import { PublicLinkCard } from '@/components/public-link-card';
 import { SubmitPublic } from '@/components/submit-public';
 
@@ -101,6 +103,9 @@ export default async function PostResourcesPage({ params }: Props) {
       </main>
     );
   }
+  // fetchActivePromotion never throws (it catches internally), so it can sit
+  // outside the directory's own error handling.
+  const promo = await fetchActivePromotion();
 
   const base = await origin();
 
@@ -163,6 +168,10 @@ export default async function PostResourcesPage({ params }: Props) {
           </div>
         </section>
       </main>
+
+      <div className="mx-auto mb-12 w-[min(780px,calc(100%-40px))]">
+        <SponsorStrip promo={promo} />
+      </div>
 
       <footer className="mt-16 border-t border-linkdrop-line bg-white px-5 py-6">
         <p className="mx-auto w-[min(780px,100%)] text-center text-xs text-neutral-500">

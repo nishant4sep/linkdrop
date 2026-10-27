@@ -9,10 +9,11 @@ import { ModerationQueue } from '@/components/console/moderation-queue';
 import { PayoutQueue } from '@/components/console/payout-queue';
 import { ContributorTable } from '@/components/console/contributor-table';
 import { ReportedQueue } from '@/components/console/reported-queue';
+import { PromotionQueue } from '@/components/console/promotion-queue';
 
-// The console's working tab today is Reports. The account-era queues stay
-// live code for the phase-2 loyalty model but render as dormant until then.
-const ACTIVE_TABS = ['reports'] as const;
+// The console's working tabs today are Reports and Promotions. The
+// account-era queues stay live code but render as dormant until then.
+const ACTIVE_TABS = ['reports', 'promotions'] as const;
 const DORMANT_TABS = ['moderation', 'contributors', 'payouts'] as const;
 const TABS = [...ACTIVE_TABS, ...DORMANT_TABS] as const;
 
@@ -52,7 +53,7 @@ export default function AdminPage() {
               dashboard<span className="text-linkdrop-forest">.</span>linkdrop · owner console
             </p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight">Manage LinkDrop</h1>
-            <p className="mt-1 text-sm text-linkdrop-muted">Reports is your main queue today. The dormant tabs are the account-era queues from before the anonymous pivot; they wake up with the phase-2 loyalty model.</p>
+            <p className="mt-1 text-sm text-linkdrop-muted">Reports is your daily queue; Promotions approves leaderboard winners&apos; ads (top 3 with 5+ live links). The dormant tabs are the account-era queues from before the pivot.</p>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={signOut} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold shadow-sm ring-1 ring-linkdrop-line transition-colors hover:bg-neutral-50">Sign out</button>
@@ -78,6 +79,7 @@ export default function AdminPage() {
         <section className="mt-8">
           {tab === 'moderation' && <ModerationQueue />}
           {tab === 'reports' && <ReportedQueue />}
+          {tab === 'promotions' && <PromotionQueue />}
           {tab === 'contributors' && <ContributorTable />}
           {tab === 'payouts' && <PayoutQueue />}
         </section>

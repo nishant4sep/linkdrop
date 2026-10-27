@@ -15,6 +15,11 @@ const MAX_POSTS = 2000;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = BASE();
 
+  const staticEntries: MetadataRoute.Sitemap = [
+    { url: `${base}/`, lastModified: new Date(), changeFrequency: 'hourly' as const, priority: 1 },
+    { url: `${base}/leaderboard`, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 0.8 },
+  ];
+
   try {
     const { data: posts, error: postsError } = await db()
       .from('posts')
@@ -24,11 +29,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     if (postsError) {
       console.error('Sitemap posts query failed:', postsError.code);
-      return [{ url: `${base}/`, lastModified: new Date() }];
+      return staticEntries;
     }
 
     const postRows = posts ?? [];
-    if (postRows.length === 0) return [{ url: `${base}/`, lastModified: new Date() }];
+    if (postRows.length === 0) return staticEntries;
 
     const { data: resourceRows, error: resourcesError } = await db()
       .from('resources')
@@ -38,7 +43,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     if (resourcesError) {
       console.error('Sitemap resources query failed:', resourcesError.code);
-      return [{ url: `${base}/`, lastModified: new Date() }];
+      return staticEntries;
     }
 
     // Only posts that actually have a live resource are worth indexing; each
@@ -49,16 +54,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (!previous || previous < row.created_at) lastResourceAt.set(row.post_id, row.created_at);
     }
 
-    return postRows
-      .filter((post) => typeof post.platform_post_id === 'string' && lastResourceAt.has(post.id))
-      .map((post) => ({
-        url: `${base}/r/${post.platform_post_id}`,
-        lastModified: new Date(lastResourceAt.get(post.id) ?? post.last_seen_at ?? Date.now()),
-        changeFrequency: 'weekly' as const,
-        priority: 0.6,
-      }));
+    return [
+      ...staticEntries,
+      ...postRows
+        .filter((post) => typeof post.platform_post_id === 'string' && lastResourceAt.has(post.id))
+        .map((post) => ({
+          url: `${base}/r/${post.platform_post_id}`,
+          lastModified: new Date(lastResourceAt.get(post.id) ?? post.last_seen_at ?? Date.now()),
+          changeFrequency: 'weekly' as const,
+          priority: 0.6,
+        })),
+    ];
   } catch (error) {
     console.error('Sitemap generation failed:', error);
-    return [{ url: `${base}/`, lastModified: new Date() }];
+    return staticEntries;
   }
 }

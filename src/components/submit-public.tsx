@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import { RESOURCE_TYPE_OPTIONS } from './public-shared';
 
 type Props = {
@@ -33,9 +34,15 @@ export function SubmitPublic({ canonicalUrl, postCode, compact = false }: Props)
     setError('');
     setDone('');
     try {
+      // Signed in? Attach the token so the submission is credited on the
+      // leaderboard. Anonymous visitors simply never send a header.
+      const session = await supabaseBrowser().auth.getSession().then((r) => r.data.session).catch(() => null);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+
       const response = await fetch('/api/public/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ postUrl: canonicalUrl, resourceUrl, resourceType, description, company }),
       });
       const payload = await response.json() as { ok?: boolean; error?: string; message?: string };
