@@ -55,7 +55,7 @@ create index if not exists resources_submitter_status_idx
 -- ---------------------------------------------------------------------------
 create or replace function public.leaderboard_top(p_limit integer default 50)
 returns table (
-  position integer,
+  board_pos integer,
   user_id uuid,
   username text,
   live_links bigint,
@@ -82,14 +82,14 @@ begin
     group by p.user_id, p.username
   )
   select
-    pg_catalog.row_number() over (order by c.live desc, c.first_at asc, c.username asc)::integer as position,
+    pg_catalog.row_number() over (order by c.live desc, c.first_at asc, c.username asc)::integer as board_pos,
     c.user_id,
     c.username,
     c.live as live_links,
     c.first_at as first_link_at
   from counts c
   where c.live > 0
-  order by position
+  order by board_pos
   limit pg_catalog.greatest(pg_catalog.least(pg_catalog.coalesce(p_limit, 50), 100), 1);
 end;
 $$;

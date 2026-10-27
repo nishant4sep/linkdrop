@@ -60,7 +60,7 @@ export async function fetchLeaderboard(limit = 50): Promise<LeaderboardResult> {
       rows: rows
         .filter((row) => typeof row.user_id === 'string' && typeof row.username === 'string')
         .map((row) => ({
-          position: Number(row.position ?? 0),
+          position: Number(row.board_pos ?? row.position ?? 0),
           userId: String(row.user_id),
           username: String(row.username),
           liveLinks: Number(row.live_links ?? 0),
