@@ -256,7 +256,7 @@ if (promotionQueue.trim() && !/\/api\/admin\/promotions/.test(promotionQueue)) {
 if (homePage.trim()) {
   if (!/fetchPublicStats/.test(homePage)) report('FAIL', 'Home page does not render real live counters (public_stats).');
   if (!/SponsorSlot|sponsor/i.test(homePage)) report('FAIL', 'Home page has no sponsor slot / leaderboard-promo CTA.');
-  if (/\bpoints\b|\bpts\b/i.test(homePage.replace(/pointless|viewpoints/g, ''))) {
+  if (/\bpoints\b|\bpts\b/i.test(homePage.replace(/no[ ._-]points|nopoints/gi, '').replace(/pointless|viewpoints/g, ''))) {
     report('WARN', 'Home page mentions points/pts; the phase-2 model has no points economy.');
   }
 }

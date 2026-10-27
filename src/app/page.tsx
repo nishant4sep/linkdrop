@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { HomeLookup } from '@/components/home-lookup';
 import { LivePresence } from '@/components/live-presence';
-import { SponsorSlot } from '@/components/sponsor';
-import { fetchActivePromotion, fetchPublicStats } from '@/lib/live';
+import { SponsorSlot, SponsorStrip } from '@/components/sponsor';
+import { fetchActivePromotion, fetchLeaderboard, fetchPublicStats } from '@/lib/live';
 import { PROMO_MIN_LINKS, PROMO_TOP_N } from '@/lib/site';
 
 /**
@@ -17,6 +17,7 @@ export default function Home() {
     <div className="min-h-screen bg-linkdrop-paper text-linkdrop-ink">
       <HomeHero />
       <HowItWorks />
+      <HomePodium />
       <HomeFooter />
     </div>
   );
@@ -143,6 +144,65 @@ function HowItWorks() {
       <p className="mx-auto mt-10 max-w-xl text-center text-xs leading-relaxed text-neutral-500">
         Signed-in contributors with genuine links are ranked publicly; the top {PROMO_TOP_N} (min. {PROMO_MIN_LINKS} live links each) may promote their own link on heavily-trafficked pages.
       </p>
+    </section>
+  );
+}
+
+async function HomePodium() {
+  // Fills the pre-footer stretch with real content: the live podium (genuine
+  // links only) plus one more earned-placement surface. Degrades to the
+  // invite card whenever the leaderboard is empty or waking up.
+  const [board, promo] = await Promise.all([fetchLeaderboard(3), fetchActivePromotion()]);
+
+  return (
+    <section className="border-t border-linkdrop-line px-5 py-16 sm:px-8 sm:py-20">
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-linkdrop-muted">The live podium</p>
+        <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">No points. Just who&apos;s genuinely helping.</h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-linkdrop-muted">
+          Names here rank automatically by currently-live genuine links — the machine keeps it fair; nobody can buy a rank.
+        </p>
+      </div>
+
+      {board.ok && board.rows.length > 0 ? (
+        <div className="mx-auto mt-10 grid max-w-3xl gap-3 sm:grid-cols-3">
+          {board.rows.map((row) => (
+            <article
+              key={row.userId}
+              className={`rounded-2xl border bg-white p-6 text-center shadow-soft ${
+                row.position === 1 ? 'border-[#cbe3a8] sm:-translate-y-1' : 'border-linkdrop-line'
+              }`}
+            >
+              <p className="text-4xl font-extrabold tracking-tight">{['🥇', '🥈', '🥉'][row.position - 1]}</p>
+              <p className="mt-2 truncate text-sm font-extrabold">@{row.username}</p>
+              <p className="mt-0.5 text-xs text-linkdrop-muted">
+                {row.liveLinks.toLocaleString('en-US')} live link{row.liveLinks === 1 ? '' : 's'}
+              </p>
+              {row.position <= PROMO_TOP_N && (
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#5a7a33]">Earned promo slot</p>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mx-auto mt-10 max-w-md rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-8 text-center text-sm text-linkdrop-muted">
+          The podium is empty on purpose: it fills only with real contributors. Be first?{' '}
+          <Link href="/login" className="font-bold text-linkdrop-forest underline underline-offset-2">Claim your username</Link>
+        </p>
+      )}
+
+      <div className="mx-auto mt-10 flex flex-wrap items-center justify-center gap-3">
+        <Link href="/leaderboard" className="rounded-xl bg-linkdrop-lime px-5 py-2.5 text-sm font-bold text-[#1a2410] transition hover:brightness-95">
+          Full live board →
+        </Link>
+        <Link href="/" className="rounded-xl border border-linkdrop-line bg-white px-5 py-2.5 text-sm font-bold text-linkdrop-ink transition hover:bg-neutral-50">
+          Find a resource
+        </Link>
+      </div>
+
+      <div className="mx-auto mt-12 w-[min(680px,100%)]">
+        <SponsorStrip promo={promo} />
+      </div>
     </section>
   );
 }

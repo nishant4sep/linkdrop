@@ -29,7 +29,7 @@ This is the 2026-10-27 pivot: growth over ceremony. The old account + reward sys
 ## Run locally
 1. Install Node.js 20.9+ and npm.
 2. Run `npm install`.
-3. Create a Supabase project and apply every migration in `supabase/migrations/` in order (0001 → 0008). The migrations are self-sufficient for a database started from the practical baseline (no `schema.sql` needed). `supabase/schema.sql` remains only a design draft for brand-new projects; do not apply it on top of an already-migrated database.
+3. Create a Supabase project and apply every migration in `supabase/migrations/` **in numeric order** (`0001_core_schema.sql` → `0008_accounts_leaderboard.sql`). `0001` recreates the foundational P0 schema for brand-new projects; `0002`–`0008` then reconcile and add the anonymous pivot, accounts, and leaderboard. `supabase/schema.sql` stays the reference draft — never run it ON TOP of a database that already has 0001 (they are the same starting point; 0001 is its executable form).
 4. Copy `.env.example` to `.env.local`. Fill in the Supabase project URL, the publishable anon key, and the server-only service-role key. Administrator access is controlled by the `admin_users` table allowlist, not a shared token — add your own user ID there.
 5. If port 3000 is occupied on your machine, run `npm run dev -- -p 3002` (or any free port). The console is at `http://localhost:PORT/admin` and also on `dashboard.localhost:PORT`.
 
