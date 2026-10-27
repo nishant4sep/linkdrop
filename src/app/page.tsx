@@ -2,15 +2,12 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useLinkDropSession } from "@/components/use-linkdrop-session";
-import { supabaseBrowser } from "@/lib/supabase-browser";
 import { PublicLinkCard } from "@/components/public-link-card";
 import { SubmitPublic } from "@/components/submit-public";
 
 type Resource = { id: string; url: string; type: string; description: string | null; addedAt: string | null };
 
 export default function Home() {
-  const { session, loading } = useLinkDropSession();
   const [url, setUrl] = useState("");
   const [canonicalUrl, setCanonicalUrl] = useState("");
   const [postCode, setPostCode] = useState("");
@@ -37,7 +34,7 @@ export default function Home() {
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not check that link.");
       setCanonicalUrl(data.postUrl);
       setPostCode(data.postCode ?? "");
-      setResources((data.resources ?? []).map((r: Resource) => r));
+      setResources(data.resources ?? []);
       setMessage(data.message);
       setSearched(true);
     } catch (e) {
@@ -47,26 +44,12 @@ export default function Home() {
     }
   }
 
-  function signOut() {
-    supabaseBrowser().auth.signOut().then(() => {
-      window.location.reload();
-    });
-  }
-
   // Scroll the results into view once a lookup completes.
   useEffect(() => {
     if (searched) {
       document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [searched, resources.length]);
-
-  if (loading) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-linkdrop-paper text-sm text-linkdrop-muted">
-        Loading LinkDrop…
-      </main>
-    );
-  }
 
   const hasResults = resources.length > 0;
 
@@ -79,29 +62,9 @@ export default function Home() {
             linkdrop<span className="text-linkdrop-forest">.</span>
           </Link>
           <nav className="flex items-center gap-5">
-            <a href="#how-it-works" className="hidden text-sm text-linkdrop-muted transition-colors hover:text-linkdrop-ink sm:block">
+            <a href="#how-it-works" className="text-sm text-linkdrop-muted transition-colors hover:text-linkdrop-ink">
               How it works
             </a>
-            {session ? (
-              <>
-                <Link href="/dashboard" className="hidden text-sm text-linkdrop-muted transition-colors hover:text-linkdrop-ink sm:block">
-                  Your workspace
-                </Link>
-                <button
-                  onClick={signOut}
-                  className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-linkdrop-ink shadow-sm ring-1 ring-linkdrop-line transition-colors hover:bg-neutral-50"
-                >
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <Link
-                href="/login"
-                className="rounded-lg bg-linkdrop-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-black"
-              >
-                Sign in
-              </Link>
-            )}
           </nav>
         </div>
       </header>
@@ -119,7 +82,7 @@ export default function Home() {
             <span className="text-linkdrop-muted">Skip the ritual.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-linkdrop-muted sm:text-lg">
-            No “comment LINK.” No waiting for a DM. Paste the Instagram post and check whether someone has already shared its resource.
+            No &ldquo;comment LINK.&rdquo; No waiting for a DM. Paste the Instagram post and check whether someone has already shared its resource.
           </p>
         </div>
 
@@ -227,10 +190,6 @@ export default function Home() {
             <Link href="/terms" className="transition-colors hover:text-linkdrop-forest">Terms</Link>
             <Link href="/privacy" className="transition-colors hover:text-linkdrop-forest">Privacy</Link>
             <Link href="/dmca" className="transition-colors hover:text-linkdrop-forest">DMCA</Link>
-            <Link href="/dashboard" className="transition-colors hover:text-linkdrop-forest">Your workspace</Link>
-            {session && (
-              <button onClick={signOut} className="transition-colors hover:text-linkdrop-forest">Sign out</button>
-            )}
           </div>
         </div>
       </footer>

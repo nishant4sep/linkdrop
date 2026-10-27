@@ -10,12 +10,16 @@ import { PayoutQueue } from '@/components/console/payout-queue';
 import { ContributorTable } from '@/components/console/contributor-table';
 import { ReportedQueue } from '@/components/console/reported-queue';
 
-const TABS = ['moderation', 'reports', 'contributors', 'payouts'] as const;
+// The console's working tab today is Reports. The account-era queues stay
+// live code for the phase-2 loyalty model but render as dormant until then.
+const ACTIVE_TABS = ['reports'] as const;
+const DORMANT_TABS = ['moderation', 'contributors', 'payouts'] as const;
+const TABS = [...ACTIVE_TABS, ...DORMANT_TABS] as const;
 
 export default function AdminPage() {
   const router = useRouter();
   const { session, loading } = useLinkDropSession();
-  const [tab, setTab] = useState<(typeof TABS)[number]>('moderation');
+  const [tab, setTab] = useState<(typeof TABS)[number]>('reports');
 
   async function signOut() {
     await supabaseBrowser().auth.signOut();
@@ -48,24 +52,27 @@ export default function AdminPage() {
               dashboard<span className="text-linkdrop-forest">.</span>linkdrop · owner console
             </p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight">Manage LinkDrop</h1>
-            <p className="mt-1 text-sm text-linkdrop-muted">Moderation queue, reported links, contributors, and the dormant payout console.</p>
+            <p className="mt-1 text-sm text-linkdrop-muted">Reports is your main queue today. The dormant tabs are the account-era queues from before the anonymous pivot; they wake up with the phase-2 loyalty model.</p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-sm font-semibold text-linkdrop-forest underline underline-offset-2">Contributor view</Link>
             <button onClick={signOut} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold shadow-sm ring-1 ring-linkdrop-line transition-colors hover:bg-neutral-50">Sign out</button>
           </div>
         </header>
 
         <div className="mt-7 inline-flex rounded-xl bg-neutral-100 p-1">
-          {TABS.map((value) => (
-            <button
-              key={value}
-              onClick={() => setTab(value)}
-              className={`rounded-lg px-5 py-2.5 text-sm font-semibold capitalize transition-colors ${tab === value ? 'bg-white text-linkdrop-ink shadow-sm' : 'text-linkdrop-muted hover:text-linkdrop-ink'}`}
-            >
-              {value}
-            </button>
-          ))}
+          {TABS.map((value) => {
+            const dormant = (DORMANT_TABS as readonly string[]).includes(value);
+            return (
+              <button
+                key={value}
+                onClick={() => setTab(value)}
+                className={`rounded-lg px-5 py-2.5 text-sm font-semibold capitalize transition-colors ${tab === value ? 'bg-white text-linkdrop-ink shadow-sm' : 'text-linkdrop-muted hover:text-linkdrop-ink'}`}
+              >
+                {value}
+                {dormant && <span className="ml-1.5 text-[10px] font-bold uppercase text-neutral-400">dormant</span>}
+              </button>
+            );
+          })}
         </div>
 
         <section className="mt-8">

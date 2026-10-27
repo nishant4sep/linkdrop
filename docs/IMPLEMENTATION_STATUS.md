@@ -56,6 +56,14 @@ Explicitly NOT implemented yet (do not claim otherwise in SEO or meta):
 - The ad gate before revealing links was deliberately NOT built in phase 1; the shape (skippable reveal vs. inline sponsored slot) is an owner decision still pending.
 - Usernames/accounts for contributors, captcha'd signup, loyalty points, leaderboard, live counters, promoted slots: phase 2/3. There are no live counters anywhere in the UI that could mislead.
 - Link-content verification (none of the destinations are fetched server-side — SSRF by design stays out).
+
+Dormant-by-design (kept, not deleted, for the phase-2 loyalty model):
+
+- Account surfaces: `/login`, `/dashboard` (contributor workspace), `/api/submit`, `/api/me/*`. No public links point at them and `/login`, `/dashboard` are robots-disallowed.
+- Console tabs `moderation`, `contributors`, `payouts` render with a "dormant" label; Reports is the only active queue under anonymous publishing.
+- Historical phase docs (P1–P5, RELEASE_PLAN) moved to `docs/archive/`.
+
+Post-pivot cleanup (same date): the public home page no longer references sessions at all — no sign-in link, no session-loading state (faster first paint); the console link is not exposed publicly; `/login` is robots-disallowed.
 - Terms/Privacy/DMCA pages exist as plain-language drafts (`/terms`, `/privacy`, `/dmca`, footer-linked). They are explicitly not legal advice; the owner must read them, set real contact addresses in `src/lib/site.ts`, and adjust jurisdiction specifics before real users arrive.
 
 ## Not complete yet
