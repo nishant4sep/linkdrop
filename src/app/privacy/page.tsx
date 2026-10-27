@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CONTACT_EMAIL, SITE_NAME } from '@/lib/site';
+import LegalShell from '@/components/legal-shell';
 
 export const metadata: Metadata = {
   title: `Privacy — ${SITE_NAME}`,
@@ -17,7 +18,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function PrivacyPage() {
   return (
-    <article>
+    <LegalShell>
+      <article>
       <h1 className="text-4xl font-extrabold tracking-tight">Privacy — what we store</h1>
       <p className="mt-2 text-sm text-linkdrop-muted">Last updated: October 27, 2026. Short by design: we deliberately collect as close to nothing as the features allow.</p>
 
@@ -76,6 +78,7 @@ export default function PrivacyPage() {
         <p>Bad links are reported right on the card and reviewed by a human. See <a href="/terms" className="text-linkdrop-forest underline underline-offset-2">Terms</a> for the removal promises.</p>
         <p className="pt-2">{SITE_NAME} is an independent project and is not affiliated with Instagram or Meta Platforms, Inc.</p>
       </Section>
-    </article>
+      </article>
+    </LegalShell>
   );
 }

@@ -60,7 +60,7 @@ Re-running the seed is safe — it skips anything that already exists.
 2. `npm run audit:contracts` → 0 failures.
 3. An admin still exists in `admin_users` — otherwise anonymous publishing is intentionally closed (`no_admin_configured`).
 4. Production env: `NEXT_PUBLIC_SITE_URL=https://your-domain` (correct absolute URLs in sitemap/robots/canonicals), `REDEMPTIONS_ENABLED=0` (leave off), `IP_HASH_SALT=<random string>` (dedicated salt; rotating it resets fingerprint history), and set `TURNSTILE_SECRET` + the site key in the submit form when anonymous traffic is worth a bot gate — it fails closed once set.
-5. Write the Terms/Privacy page + a DMCA contact. You are now a public directory hosting other people's contributions; this is the one afternoon that prevents a takedown ambush later.
+5. Legal pages are live but generic: read `/terms`, `/privacy`, `/dmca`, replace the two `YOUR-*-EMAIL` placeholders in `src/lib/site.ts`, and adjust wording to your jurisdiction before launch.
 
 ## 5. What phase 2 is (next decisions, in owner language)
 

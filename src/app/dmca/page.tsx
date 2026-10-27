@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DMCA_EMAIL, SITE_NAME } from '@/lib/site';
+import LegalShell from '@/components/legal-shell';
 
 export const metadata: Metadata = {
   title: `DMCA / Copyright — ${SITE_NAME}`,
@@ -17,7 +18,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function DmcaPage() {
   return (
-    <article>
+    <LegalShell>
+      <article>
       <h1 className="text-4xl font-extrabold tracking-tight">Copyright / DMCA takedown</h1>
       <p className="mt-2 text-sm text-linkdrop-muted">Last updated: October 27, 2026.</p>
 
@@ -73,6 +75,7 @@ export default function DmcaPage() {
           <span className="text-xs text-neutral-500">Replace this with your real inbox before launch — see the checklist in README.</span>
         </p>
       </Section>
-    </article>
+      </article>
+    </LegalShell>
   );
 }

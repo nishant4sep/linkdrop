@@ -56,7 +56,7 @@ Explicitly NOT implemented yet (do not claim otherwise in SEO or meta):
 - The ad gate before revealing links was deliberately NOT built in phase 1; the shape (skippable reveal vs. inline sponsored slot) is an owner decision still pending.
 - Usernames/accounts for contributors, captcha'd signup, loyalty points, leaderboard, live counters, promoted slots: phase 2/3. There are no live counters anywhere in the UI that could mislead.
 - Link-content verification (none of the destinations are fetched server-side — SSRF by design stays out).
-- Terms/Privacy pages and DMCA contact are still to be written before real users arrive.
+- Terms/Privacy/DMCA pages exist as plain-language drafts (`/terms`, `/privacy`, `/dmca`, footer-linked). They are explicitly not legal advice; the owner must read them, set real contact addresses in `src/lib/site.ts`, and adjust jurisdiction specifics before real users arrive.
 
 ## Not complete yet
 

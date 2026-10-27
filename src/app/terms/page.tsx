@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CONTACT_EMAIL, SITE_NAME, SITE_NOTAFFILIATED } from '@/lib/site';
+import LegalShell from '@/components/legal-shell';
 
 export const metadata: Metadata = {
   title: `Terms of Use — ${SITE_NAME}`,
@@ -17,7 +18,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function TermsPage() {
   return (
-    <article>
+    <LegalShell>
+      <article>
       <h1 className="text-4xl font-extrabold tracking-tight">Terms of Use</h1>
       <p className="mt-2 text-sm text-linkdrop-muted">Last updated: October 27, 2026. Written in plain language on purpose.</p>
 
@@ -79,6 +81,7 @@ export default function TermsPage() {
         <p>When these terms change materially, this page&apos;s date at the top updates. Continued use after a change means acceptance of the changed terms.</p>
         <p className="pt-2">Questions: <a href={`mailto:${CONTACT_EMAIL}`} className="text-linkdrop-forest underline underline-offset-2">{CONTACT_EMAIL}</a></p>
       </Section>
-    </article>
+      </article>
+    </LegalShell>
   );
 }

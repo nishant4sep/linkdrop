@@ -78,7 +78,9 @@ Any host starting with `dashboard.` is rewritten by `src/middleware.ts` to the c
 ## Before public launch
 Follow `docs/PHASE1_RUNBOOK.md` step by step (apply 0007 → `check:db` → `demo:seed` → rehearse the loop → `demo:remove` → launch checklist).
 
-This is an MVP, not a security audit. The rate limiter coordinates through a database RPC but should be load-tested. Still recommended: shared/bot protection at the edge (Turnstile in production is strongly advised once anonymous traffic becomes real), link-threat scanning, a Terms/Privacy page and DMCA contact (you are now hosting a public directory — this is not optional), monitoring, backups, automated security tests, and legal review **before ever enabling cash-equivalent redemption** (`docs/P4_PRIVACY_AND_CONTENT_POLICY.md` and `docs/P3_REWARD_LEDGER_AND_INVARIANTS.md`). Do not fetch arbitrary submitted URLs from the server (SSRF risk).
+This is an MVP, not a security audit. The rate limiter coordinates through a database RPC but should be load-tested. Still recommended: shared/bot protection at the edge (Turnstile in production is strongly advised once anonymous traffic becomes real), link-threat scanning, monitoring, backups, automated security tests, and legal review **before ever enabling cash-equivalent redemption** (`docs/P4_PRIVACY_AND_CONTENT_POLICY.md` and `docs/P3_REWARD_LEDGER_AND_INVARIANTS.md`). Do not fetch arbitrary submitted URLs from the server (SSRF risk).
+
+Legal pages (`/terms`, `/privacy`, `/dmca`) ship as honest plain-language drafts — review them, replace the `YOUR-*-EMAIL` placeholders in `src/lib/site.ts`, and have someone with local-law eyes on them before you call them final.
 
 Checklist before the first real user:
 1. Every migration applied (0001 → 0007); `npm run audit:contracts` passes.

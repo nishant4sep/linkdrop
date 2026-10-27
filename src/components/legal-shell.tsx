@@ -1,13 +1,12 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 
 /**
  * Shared chrome for /terms, /privacy, /dmca. Kept deliberately plain so the
  * pages stay readable, indexable, and honest: these are plain-language policy
  * drafts, not legal advice.
  */
-export default function LegalLayout({ children }: { children: ReactNode }) {
+export default function LegalShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-linkdrop-paper text-linkdrop-ink">
       <header className="border-b border-linkdrop-line bg-linkdrop-paper/90">
