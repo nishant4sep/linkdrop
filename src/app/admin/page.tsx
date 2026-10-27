@@ -10,17 +10,18 @@ import { PayoutQueue } from '@/components/console/payout-queue';
 import { ContributorTable } from '@/components/console/contributor-table';
 import { ReportedQueue } from '@/components/console/reported-queue';
 import { PromotionQueue } from '@/components/console/promotion-queue';
+import { OverviewTab } from '@/components/console/overview-tab';
 
-// The console's working tabs today are Reports and Promotions. The
+// The console's working tabs today: Overview, Reports and Promotions. The
 // account-era queues stay live code but render as dormant until then.
-const ACTIVE_TABS = ['reports', 'promotions'] as const;
+const ACTIVE_TABS = ['overview', 'reports', 'promotions'] as const;
 const DORMANT_TABS = ['moderation', 'contributors', 'payouts'] as const;
 const TABS = [...ACTIVE_TABS, ...DORMANT_TABS] as const;
 
 export default function AdminPage() {
   const router = useRouter();
   const { session, loading } = useLinkDropSession();
-  const [tab, setTab] = useState<(typeof TABS)[number]>('reports');
+  const [tab, setTab] = useState<(typeof TABS)[number]>('overview');
 
   async function signOut() {
     await supabaseBrowser().auth.signOut();
@@ -50,10 +51,10 @@ export default function AdminPage() {
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-linkdrop-line pb-6">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-linkdrop-muted">
-              dashboard<span className="text-linkdrop-forest">.</span>linkdrop · owner console
+              linkdrop<span className="text-linkdrop-forest">.</span> owner console
             </p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight">Manage LinkDrop</h1>
-            <p className="mt-1 text-sm text-linkdrop-muted">Reports is your daily queue; Promotions approves leaderboard winners&apos; ads (top 3 with 5+ live links). The dormant tabs are the account-era queues from before the pivot.</p>
+            <p className="mt-1 text-sm text-linkdrop-muted">Overview monitors everything; Reports is your daily queue; Promotions approves leaderboard winners&apos; ads (top 3 with 5+ live links). Dormant tabs are the pre-pivot queues.</p>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={signOut} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold shadow-sm ring-1 ring-linkdrop-line transition-colors hover:bg-neutral-50">Sign out</button>
@@ -77,6 +78,7 @@ export default function AdminPage() {
         </div>
 
         <section className="mt-8">
+          {tab === 'overview' && <OverviewTab onOpenTab={setTab} />}
           {tab === 'moderation' && <ModerationQueue />}
           {tab === 'reports' && <ReportedQueue />}
           {tab === 'promotions' && <PromotionQueue />}

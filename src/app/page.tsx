@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { HomeLookup } from '@/components/home-lookup';
+import { LivePresence } from '@/components/live-presence';
 import { SponsorSlot } from '@/components/sponsor';
 import { fetchActivePromotion, fetchPublicStats } from '@/lib/live';
 import { PROMO_MIN_LINKS, PROMO_TOP_N } from '@/lib/site';
@@ -79,6 +80,7 @@ async function HomeHero() {
                 </div>
               )}
             </div>
+            <LivePresence />
           </div>
         )}
 
@@ -95,7 +97,7 @@ async function HomeHero() {
                 Whoever tops the live leaderboard gets their own ad here — seen by every visitor.
               </p>
               <p className="mt-1.5 text-xs leading-relaxed text-linkdrop-muted">
-                Share genuine links, create a free username, climb the board. Stay at the top and your promotion stays up (owner-reviewed, community-guidelines apply).
+                Share genuine links, create a free username, climb the board. Fully automated and fair: the rank decides who gets the slot — no payments, no bidding, no favors — and only the owner vets content for safety.
               </p>
               <div id="leaderboard-teaser" className="mt-4 flex flex-wrap items-center justify-center gap-3">
                 <Link href="/leaderboard" className="rounded-xl bg-linkdrop-lime px-5 py-2.5 text-sm font-bold text-[#1a2410] transition hover:brightness-95">

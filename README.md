@@ -2,6 +2,13 @@
 
 Community-powered directory for resource links associated with Instagram posts and Reels. Search a post → if the resource is missing, anyone can add it anonymously → it publishes **instantly**. A single report hides a link until the owner reviews it. No accounts required to contribute, no scraping, no private DMs.
 
+## Phase 2b (2026-10-27, later the same day): monetized placements + owner console
+
+- **Sponsored search gate** (`src/components/sponsor-gate.tsx` + `GET /api/public/sponsor`): clicking “Find resource” opens a 5-second skippable interstitial. When a promotion is live it shows that ad (`rel="nofollow sponsored"`, honest fine print); otherwise it shows the “slot is earned, not bought” house card. It never invents ad content. Knobs: `SKIP_SECONDS`, `COOLDOWN_MS` (per-visitor frequency cap).
+- **Live presence pulse** (`src/components/live-presence.tsx`): real “people here right now” counter via Supabase Realtime presence. If Realtime is unavailable it renders nothing — LinkDrop never shows a fabricated viewer number.
+- **Owner console Overview tab** (`GET /api/admin/overview` + `console/overview-tab.tsx`): live directory health (resources, covered posts, attributed links, last add), report volume, promo pipeline, and the current podium — clickable into the queues.
+- Fair-play messaging across the home page, gate, and leaderboard: rank is computed automatically from genuinely-live links; no payments, no bidding — only owner content-vetting.
+
 ## Phase 2 (2026-10-27): username accounts, live leaderboard, earned promo slots — count-based, no points
 
 There is **no points economy and no earning** anywhere in phase 2. The loop:

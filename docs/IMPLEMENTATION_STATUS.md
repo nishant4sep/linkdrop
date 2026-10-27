@@ -50,6 +50,15 @@ Implemented in phase 1:
 - `scripts/seed-demo.mjs` / `scripts/remove-demo.mjs` (`npm run demo:seed` / `demo:remove`): flagged demo fixtures (`is_demo = true`, `example.com` URLs, `demo-fingerprint-*` hashes) including one pre-quarantined resource for the Reports tab; removal is FK-safe and idempotent.
 - `scripts/demo-names.json`: phase-2 demo usernames (leaderboard material; not consumed by any route yet).
 
+## Phase 2b — sponsored search gate, presence pulse, owner overview console (2026-10-27, PM)
+
+Owner-facing additions from the launch-eve feedback round:
+
+- `src/components/sponsor-gate.tsx` — search interstitial, 5-second skip, cooldown knob (`COOLDOWN_MS`), two honest modes (real promo / house card). Feed: `src/app/api/public/sponsor/route.ts` reading `active_promotion` (per-render eligibility re-check in SQL).
+- `src/components/live-presence.tsx` — Supabase Realtime presence counter; hidden entirely when Realtime is down. No synthetic counts.
+- `src/app/api/admin/overview/route.ts` + `src/components/console/overview-tab.tsx` — owner metrics pull (live resources, covered posts, attributed links, 24h report volume, promo pipeline, live podium) with drill-through tabs.
+- Console heading renamed (`linkdrop. owner console`); Promotions tab now explains that it requires the `admin_users` allowlisted account rather than a bare "Administrator access required."
+
 ## Phase 2 — username accounts, live leaderboard, earned promo slots (2026-10-27)
 
 Owner decision first: **no points, no rewards earning.** The loyalty economy is count-based: contributors ranked by how many of their links are genuine AND currently live; the top of the board earns the right to paste their own promotion.

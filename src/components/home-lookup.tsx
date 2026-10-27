@@ -1,15 +1,18 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { PublicLinkCard } from '@/components/public-link-card';
 import { SubmitPublic } from '@/components/submit-public';
+import { SponsorGate, gateCooldownActive } from '@/components/sponsor-gate';
 
 type Resource = { id: string; url: string; type: string; description: string | null; addedAt: string | null };
 
 /**
  * The interactive half of the public home page: paste a post URL, see what is
  * already shared, and (on a miss) publish anonymously or from your account.
+ * The "find" action passes through the sponsored interstitial (cooldown-free
+ * in testing; real visitors meet it at most once per COOLDOWN_MS).
  */
 export function HomeLookup() {
   const [url, setUrl] = useState('');
@@ -20,9 +23,31 @@ export function HomeLookup() {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
+  const pendingUrl = useRef<string | null>(null);
 
   async function resolve(e: FormEvent) {
     e.preventDefault();
+    const target = url.trim();
+    if (!target) return;
+
+    // Sponsored interstitial — but not for every single repeat search.
+    if (gateCooldownActive()) {
+      void runLookup(target);
+      return;
+    }
+    pendingUrl.current = target;
+    setGateOpen(true);
+  }
+
+  function proceedFromGate() {
+    setGateOpen(false);
+    const target = pendingUrl.current;
+    pendingUrl.current = null;
+    if (target) void runLookup(target);
+  }
+
+  async function runLookup(target: string) {
     setChecking(true);
     setError('');
     setMessage('');
@@ -32,7 +57,7 @@ export function HomeLookup() {
       const response = await fetch('/api/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: target }),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Could not check that link.');
@@ -59,6 +84,7 @@ export function HomeLookup() {
 
   return (
     <div className="mx-auto mt-12 w-[min(680px,100%)]">
+      <SponsorGate open={gateOpen} onDone={proceedFromGate} />
       <form onSubmit={resolve}>
         <label htmlFor="post" className="mb-2 block text-xs font-bold text-linkdrop-ink">
           Instagram post or Reel URL

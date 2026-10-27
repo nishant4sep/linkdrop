@@ -56,7 +56,13 @@ export function PromotionQueue() {
         cache: 'no-store',
       });
       const payload = await response.json() as QueuePayload;
-      if (!response.ok) throw new Error(payload.error ?? 'Could not load the promotion queue.');
+      if (!response.ok) {
+        throw new Error(
+          response.status === 401 || response.status === 403
+            ? 'Owner access required: sign in at /login with the account listed in admin_users, then reopen this tab.'
+            : payload.error ?? 'Could not load the promotion queue.',
+        );
+      }
       setPending(payload.pending ?? []);
       setApproved(payload.approved ?? []);
       setHistory(payload.history ?? []);

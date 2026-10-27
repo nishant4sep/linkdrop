@@ -57,7 +57,14 @@ const authRoute = requireFile('src/app/api/auth/username/route.ts');
 const leaderboardPage = requireFile('src/app/leaderboard/page.tsx');
 const mePromotionsRoute = requireFile('src/app/api/me/promotions/route.ts');
 const adminPromotionsRoute = requireFile('src/app/api/admin/promotions/route.ts');
+const adminPage = requireFile('src/app/admin/page.tsx');
 const promotionQueue = requireFile('src/components/console/promotion-queue.tsx');
+const sponsorGate = requireFile('src/components/sponsor-gate.tsx');
+const homeLookup = requireFile('src/components/home-lookup.tsx');
+const publicSponsorRoute = requireFile('src/app/api/public/sponsor/route.ts');
+const livePresence = requireFile('src/components/live-presence.tsx');
+const adminOverviewRoute = requireFile('src/app/api/admin/overview/route.ts');
+const overviewTab = requireFile('src/components/console/overview-tab.tsx');
 const homePage = requireFile('src/app/page.tsx');
 const liveLib = requireFile('src/lib/live.ts');
 const sponsorComponent = requireFile('src/components/sponsor.tsx');
@@ -262,6 +269,42 @@ if (publicSubmitRoute.trim() && !/p_submitter_id|optionalSubmitterId/.test(publi
 }
 if (sitemapRoute.trim() && !/leaderboard/.test(sitemapRoute)) {
   report('WARN', 'Sitemap does not include /leaderboard; an indexable phase-2 surface is missing from discovery.');
+}
+// ---------------------------------------------------------------------------
+// Monetization surfaces: the sponsored search gate, extra placements, and the
+// owner overview console. Guardrails keep the "earned, not bought" promise.
+// ---------------------------------------------------------------------------
+if (!sponsorGate.trim()) {
+  report('FAIL', 'Sponsor gate component missing: search interstitial cannot render owned promos.');
+} else {
+  if (!sponsorGate.includes('rel="noreferrer nofollow sponsored"')) {
+    report('FAIL', 'Sponsor gate does not mark the sponsored link rel="nofollow sponsored".');
+  }
+  if (!/SKIP_SECONDS/.test(sponsorGate)) report('FAIL', 'Sponsor gate has no configurable skip timer.');
+  if (!/gateCooldownActive|COOLDOWN_MS/.test(sponsorGate)) report('WARN', 'Sponsor gate has no per-visitor cooldown knob; every search will show the wait.');
+}
+if (homeLookup.trim() && !/SponsorGate/.test(homeLookup)) {
+  report('FAIL', '"Find resource" does not route through the sponsor gate; the owner ad surface is dead code.');
+}
+if (!publicSponsorRoute.trim()) {
+  report('FAIL', 'Public sponsor endpoint missing: the search gate cannot fetch the live promo.');
+}
+if (!livePresence.trim()) {
+  report('FAIL', 'Live presence component missing: the home page has no live visitor pulse.');
+} else if (!/presenceState/.test(livePresence)) {
+  // The count must come from Realtime presenceState — never invented.
+  report('FAIL', 'Live presence does not count real Realtime presence; fabricating a viewer count is banned.');
+}
+if (!adminOverviewRoute.trim()) {
+  report('FAIL', 'Admin overview endpoint missing: the owner console cannot show directory metrics.');
+} else if (!/requireAdmin/.test(adminOverviewRoute)) {
+  report('FAIL', 'Admin overview route does not visibly call requireAdmin.');
+}
+if (adminPage.trim() && !/overview/.test(adminPage)) {
+  report('FAIL', 'Owner console lacks the Overview monitoring tab.');
+}
+if (overviewTab.trim() && !adminOverviewRoute) {
+  report('FAIL', 'Overview console exists without its metrics endpoint.');
 }
 if (payoutRoute && !/requireAdmin/.test(payoutRoute)) {
   report('FAIL', 'Admin payouts route does not visibly call requireAdmin.');
