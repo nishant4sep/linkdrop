@@ -23,11 +23,17 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------------------
 -- 1. Usernames on profiles. NULL username = legacy account (still fine to use
 --    with requireUser; it just is never ranked or shown on the leaderboard).
+--    NOTE: the live resources table never received schema.sql's submitted_by
+--    (the baseline tables diverged from the draft); attribution requires it,
+--    so it is reconciled here before anything references it.
 -- ---------------------------------------------------------------------------
 alter table public.profiles
   add column if not exists username text,
   add column if not exists username_created_ip_hash text,
   add column if not exists username_created_at timestamptz;
+
+alter table public.resources
+  add column if not exists submitted_by uuid references auth.users(id) on delete set null;
 
 do $$
 begin
@@ -36,13 +42,15 @@ begin
       add constraint profiles_username_shape
       check (username is null or username ~ '^[a-z0-9_]{3,20}$');
   end if;
+  if not exists (select 1 from pg_catalog.pg_constraint where conname = 'profiles_username_ip_hash_length') then
+    alter table public.profiles
+      add constraint profiles_username_ip_hash_length
+      check (username_created_ip_hash is null or pg_catalog.char_length(username_created_ip_hash) <= 64);
+  end if;
 end $$;
 
 create unique index if not exists profiles_username_unique_idx
   on public.profiles (username);
-
-alter table public.profiles
-  add constraint profiles_username_ip_hash_length check (username_created_ip_hash is null or pg_catalog.char_length(username_created_ip_hash) <= 64);
 
 -- Fast live-link counting per contributor.
 create index if not exists resources_submitter_status_idx
@@ -340,6 +348,7 @@ create table if not exists public.promotion_requests (
   updated_at timestamptz not null default now()
 );
 
+drop trigger if exists promotion_requests_updated_at on public.promotion_requests;
 create trigger promotion_requests_updated_at before update on public.promotion_requests
   for each row execute function public.set_updated_at();
 
