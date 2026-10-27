@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, jsonError, requireAdmin } from '@/lib/server';
+import { db, isUuid, jsonError, requireAdmin } from '@/lib/server';
 
 /**
  * Owner's reported-links queue: every quarantined ("disputed") resource with
@@ -111,7 +111,7 @@ export async function PATCH(request: NextRequest) {
   const action = payload['action'];
   const note = typeof payload['note'] === 'string' ? payload['note'].trim().slice(0, 500) : null;
 
-  if (typeof resourceId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resourceId)) {
+  if (!isUuid(resourceId)) {
     return jsonError('A valid resourceId is required.', 400);
   }
   if (action !== 'reinstate' && action !== 'remove') {

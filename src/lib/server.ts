@@ -83,6 +83,16 @@ export function jsonError(error: string, status: number): Response {
   return Response.json({ ok: false, error }, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 }
 
+/**
+ * Hex-shape UUID check (8-4-4-4-12, any version). Input hygiene only: the
+ * database still proves existence, so variant/version nibbles are not
+ * restricted here — rejecting valid ids there would break real flows.
+ */
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
 
 export function requestOriginAllowed(request: Request): boolean {
   const origin = request.headers.get('origin');

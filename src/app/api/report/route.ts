@@ -1,4 +1,4 @@
-import { db, jsonError } from '@/lib/server';
+import { db, isUuid, jsonError } from '@/lib/server';
 import { consumeRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { clientIpHash, honeypotTripped } from '@/lib/ip';
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const reason = input['reason'];
   const details = typeof input['details'] === 'string' ? input['details'].trim() : '';
 
-  if (typeof resourceId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resourceId)) {
+  if (!isUuid(resourceId)) {
     return jsonError('Provide the resource being reported.', 400);
   }
   if (typeof reason !== 'string' || !REASONS.has(reason)) {
