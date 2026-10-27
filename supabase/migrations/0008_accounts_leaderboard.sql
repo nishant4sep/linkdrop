@@ -98,7 +98,11 @@ begin
   from counts c
   where c.live > 0
   order by board_pos
-  limit pg_catalog.greatest(pg_catalog.least(pg_catalog.coalesce(p_limit, 50), 100), 1);
+  -- coalesce/greatest/least are parser-level keywords: they must NOT be
+  -- schema-qualified (pg_catalog.coalesce is not a real catalog function and
+  -- would fail with 42883). Plain keywords resolve under search_path = ''
+  -- because pg_catalog is always searched implicitly first.
+  limit greatest(least(coalesce(p_limit, 50), 100), 1);
 end;
 $$;
 
@@ -447,7 +451,7 @@ declare
   v_row public.promotion_requests%rowtype;
   v_until timestamptz;
 begin
-  if p_action not in ('approve', 'reject', 'retire', 'extend') then
+  if p_action is null or p_action not in ('approve', 'reject', 'retire', 'extend') then
     raise exception using errcode = '22023', message = 'invalid_action';
   end if;
   if p_note is not null and pg_catalog.char_length(p_note) > 500 then

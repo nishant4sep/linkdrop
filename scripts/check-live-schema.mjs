@@ -42,8 +42,13 @@ const RPCS = [
   { name: 'leaderboard_top', args: {} },
   { name: 'active_promotion', args: {} },
   { name: 'contributor_rank', args: { p_user_id: null } },
-  { name: 'submit_promotion', args: { p_user_id: null } },
-  { name: 'admin_promotion_decide', args: { p_request_id: null } },
+  // These two must pass ALL required arguments — PostgREST answers PGRST202
+  // for a partial arg subset, which looks identical to "function missing".
+  // With full args both hits are intentional rejections, proving existence:
+  //   submit_promotion (null headline)       → 22023 invalid_input
+  //   admin_promotion_decide (null action)   → 22023 invalid_action
+  { name: 'submit_promotion', args: { p_user_id: null, p_headline: null, p_detail: null, p_target_url: null } },
+  { name: 'admin_promotion_decide', args: { p_request_id: null, p_reviewer_id: null, p_action: null, p_note: null, p_hours: null } },
 ];
 
 async function probeRpcs(db) {
