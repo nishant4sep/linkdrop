@@ -340,3 +340,20 @@ alter table public.outbox_jobs enable row level security;
 -- No client policies are intentionally created in this foundation migration.
 -- Public lookup and contributor access will be exposed through narrowly scoped server APIs.
 -- Never expose the Supabase service-role key in browser code or public environment variables.
+
+-- Explicit server-role grants on the core tables. Supabase's platform default
+-- privileges would cover these on an untouched project, but a wipe + recreate
+-- of the public schema (`drop schema public cascade; create schema public;`)
+-- drops those defaults - leaving direct server-side reads (the resolver,
+-- submit duplicate checks) failing with 42501. Never rely on platform defaults
+-- for the app contract: grant explicitly.
+grant select, insert, update, delete on table public.posts       to service_role;
+grant select, insert, update, delete on table public.resources   to service_role;
+grant select, insert, update, delete on table public.submissions to service_role;
+grant select, insert, update, delete on table public.submission_evidence to service_role;
+grant select, insert, update, delete on table public.verification_runs   to service_role;
+grant select, insert, update, delete on table public.verification_reviews to service_role;
+grant select, insert, update, delete on table public.resource_versions   to service_role;
+grant select, insert, update, delete on table public.reward_ledger       to service_role;
+grant select, insert, update, delete on table public.moderation_cases    to service_role;
+grant select, insert, update, delete on table public.outbox_jobs         to service_role;
