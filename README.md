@@ -37,6 +37,36 @@ This is the 2026-10-27 pivot: growth over ceremony. The old account + reward sys
 > Supabase keys. If any of those were real, rotate them: they must be treated
 > as compromised.
 
+## Deploy to Cloudflare Workers
+
+The app ships as a Next.js SSR app on Cloudflare Workers via the OpenNext adapter (`@opennextjs/cloudflare`). `wrangler.jsonc` + `open-next.config.ts` are committed — no R2 cache binding needed at this scale.
+
+**Build settings** (Workers & Pages → linkdrop → Settings → Build):
+
+| Field | Value |
+|---|---|
+| Build command | `npx opennextjs-cloudflare build` |
+| Deploy command | `npx opennextjs-cloudflare deploy` |
+
+**Build variables** (Settings → Build → Build variables — baked into the client bundle at build time): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` (and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` when Turnstile is enabled).
+
+**Runtime variables and secrets** (Settings → Variables and Secrets, Production tab):
+
+| Name | Type | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Variable | required — the server-side client (`src/lib/server.ts`) reads it by dynamic name at runtime, so build variables alone are not enough |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Variable | required — same reason; used by the auth routes |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | required — bypasses RLS; never put it in a `NEXT_PUBLIC_*` variable |
+| `NEXT_PUBLIC_SITE_URL` | Variable | workers.dev URL now, real domain later |
+| `IP_HASH_SALT` | **Secret** | recommended; rotating it resets IP-hash history |
+| `REDEMPTIONS_ENABLED` | Variable | `0` — keeps payouts dormant |
+
+`APP_ORIGIN` stays unset: same-origin requests are allowed automatically, and an external origin is only added when the env var is present.
+
+**Redeploys:** runtime variables and secrets apply only to **fresh deployments**. Changing them in the dashboard does nothing to the currently running Worker — retry the latest deployment (Deployments → `…` → Retry deployment) or push any commit to `main`; Cloudflare rebuilds on push.
+
+**Live checklist after a deploy:** home counters render honest DB numbers → `/leaderboard` ranks by currently-live links → resolver/`/r/[code]` work → login works → an anonymous add publishes instantly and a report hides it → `/admin` console reachable with an `admin_users` account. If a route 500s or shows a graceful "temporarily unavailable" message, the first line in **Observability → Logs** names the missing variable or RPC error.
+
 ## How the directory works
 ```
 someone searches an Instagram post
