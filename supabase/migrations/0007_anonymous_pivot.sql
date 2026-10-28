@@ -5,7 +5,7 @@
 --     IMMEDIATELY (retro-moderation) and are auto-hidden the moment a single,
 --     distinct person reports the resource ("disputed" state, resolvers never
 --     serve non-active rows). The owner can reinstate or remove from console.
---   * IPs are only ever stored as salted hashes — never raw addresses.
+--   * IPs are only ever stored as salted hashes - never raw addresses.
 --   * A first report quarantines the link; IP blocking stays a human decision
 --     in the console (CG-NAT makes blanket auto IP bans unusable).
 --   * The cash payout system stays in 0006 tables but is switched OFF by
@@ -126,7 +126,7 @@ begin
 
   -- Post registration: 0006 guarantees a unique index on (platform, canonical_url).
   insert into public.posts (platform, canonical_url, platform_post_id, canonical_post_id)
-  values (p_platform, p_canonical_post_url, p_post_code, p_post_code)
+  values (p_platform::public.platform_type, p_canonical_post_url, p_post_code, p_post_code)
   on conflict (platform, canonical_url)
   do update set last_seen_at = now()
   returning id into v_post_id;
@@ -245,7 +245,7 @@ grant execute on function public.report_resource(uuid, uuid, text, text, text)
 
 -- ---------------------------------------------------------------------------
 -- 5. admin_resolve_report: owner reviews a quarantined resource.
---    'reinstate' → active again; 'remove' → permanently delisted.
+--    'reinstate' -> active again; 'remove' -> permanently delisted.
 -- ---------------------------------------------------------------------------
 create or replace function public.admin_resolve_report(
   p_resource_id uuid,

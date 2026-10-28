@@ -10,7 +10,7 @@ import { PROMO_MIN_LINKS, PROMO_TOP_N } from '@/lib/site';
  * with the phase-2 live counter strip and sponsor slot rendered server-side
  * from real database numbers (never placeholders, never faked).
  */
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 export default function Home() {
   return (

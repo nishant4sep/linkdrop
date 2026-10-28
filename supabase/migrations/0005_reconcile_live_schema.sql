@@ -91,6 +91,14 @@ alter table public.rate_limit_buckets enable row level security;
 revoke all on table public.rate_limit_buckets from anon, authenticated;
 grant select, insert, update, delete on table public.rate_limit_buckets to service_role;
 
+-- 0003 shipped an overload with the same signature but swapped parameter
+-- positions (key, window, max). Postgres cannot CREATE OR REPLACE a function
+-- whose positional input parameter NAMES changed (42P17), so the old body is
+-- removed first. This is the authoritative version: (key, max_requests,
+-- window_seconds) - the order the application calls.
+drop function if exists public.consume_rate_limit(text, integer, integer);
+
+
 create or replace function public.consume_rate_limit(
   p_bucket_key text,
   p_max_requests integer,

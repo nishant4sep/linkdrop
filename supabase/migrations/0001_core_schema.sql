@@ -1,18 +1,34 @@
-﻿-- LinkDrop 0001: core schema for a FRESH project (recreated 2026-10-27).
+-- LinkDrop 0001: core schema for a FRESH project (reconstructed 2026-10-28).
 --
--- The original P0 migration was lost in a baseline shuffle; this file
--- restores the foundational schema verbatim from the schema.sql draft so a
--- brand-new Supabase project can stand up from empty. On an ALREADY-migrated
--- database (burner/testing project) do NOT run this again -- the later
--- migrations 0002-0008 reconcile it into the live application shape.
+-- This is the UNION baseline the entire chain is written against - it matches
+-- the REAL P0 database the later migrations were produced from, with the draft
+-- era's legacy columns retained (nullable) rather than dropped. Type choices
+-- matter here and are deliberate:
+--   * submissions.status, submissions.moderation_status and
+--     resources.status are plain TEXT + CHECK. 0003/0005 compare bare
+--     literals ('pending', 'published') against them; an enum-typed column
+--     whose label set lacks the literal fails with 22P02 at DDL time.
+--   * submissions carries the application contract columns (post_id,
+--     submitted_by, resource_url, normalized_resource_url, resource_type,
+--     description, verification_method) from the start, because 0003 creates
+--     a partial index on (post_id, normalized_resource_url) BEFORE 0005 adds
+--     them on the reconciler path.
+--   * Draft-era fields (contributor_id, proposed_*_url, normalized_*_key,
+--     reward_eligibility...) are kept but nullable - the pivot to anonymous
+--     submissions must not be blocked by stale NOT NULLs. 0005 hardens what
+--     the application actually requires; 0007 relaxes them again per the
+--     anonymous model.
+--   * The enum TYPES stay registered for dormant-era compatibility (reward
+--     ledger tables reference them), but no status column is enum-typed.
 --
 -- Apply order: 0001 -> 0002 -> 0003 -> 0004 -> 0005 -> 0006 -> 0007 -> 0008.
-
--- LinkDrop foundational schema
--- Apply to a fresh Supabase project. Keep privileged writes on the trusted server.
+-- Do NOT re-run 0001 on a project that already applied it - this file is not
+-- written for re-entry; on a mangled schema, wipe the schema and replay.
 
 create extension if not exists pgcrypto;
 
+-- (1) Enum type objects, kept for dormant-era compatibility. Column types
+--     below deliberately use text + check where the chain compares literals.
 create type public.platform_type as enum ('instagram');
 create type public.resource_status as enum ('pending', 'active', 'stale', 'disputed', 'quarantined', 'removed');
 create type public.submission_status as enum ('received', 'validating', 'awaiting_review', 'approved', 'rejected', 'quarantined');
@@ -50,11 +66,15 @@ create table public.contributor_private (
   updated_at timestamptz not null default now()
 );
 
+-- (2) posts: canonical registration. (platform, canonical_post_id) is the
+--     base-era key; 0006 adds the platform_post_id column and the
+--     (platform, canonical_url) unique key the submit upsert targets.
 create table public.posts (
   id uuid primary key default gen_random_uuid(),
   platform public.platform_type not null default 'instagram',
   canonical_post_id text not null,
   canonical_url text not null,
+  platform_post_id text,
   original_url text,
   creator_handle text,
   post_type text check (post_type is null or post_type in ('reel', 'post', 'carousel', 'unknown')),
@@ -66,15 +86,20 @@ create table public.posts (
   unique (platform, canonical_post_id)
 );
 
+-- (3) resources: the live directory. status is TEXT with the live-era label
+--     set (pending/active/stale/disputed/quarantined/removed) - 'published'
+--     must NOT appear on rows; 0003's partial index filtering on
+--     status = 'published' is valid SQL on a text column regardless.
+--     resource_type includes 'tutorial' (the public submit flow offers it).
 create table public.resources (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts(id) on delete restrict,
   resource_url text not null,
   normalized_resource_url text not null,
-  resource_type text not null default 'unknown' check (resource_type in ('preset', 'template', 'pdf', 'document', 'project_file', 'software', 'course', 'product', 'other', 'unknown')),
+  resource_type text not null default 'unknown' check (resource_type in ('preset', 'template', 'pdf', 'document', 'project_file', 'software', 'course', 'tutorial', 'product', 'other', 'unknown')),
   title text,
   description text,
-  status public.resource_status not null default 'pending',
+  status text not null default 'pending' check (status in ('pending', 'active', 'stale', 'disputed', 'quarantined', 'removed')),
   version_number integer not null default 1 check (version_number > 0),
   submitted_by uuid references auth.users(id) on delete set null,
   approved_at timestamptz,
@@ -89,18 +114,28 @@ create table public.resources (
 create index resources_public_lookup_idx on public.resources (post_id, status);
 create index resources_revalidation_idx on public.resources (next_check_at) where status = 'active';
 
+-- (4) submissions: the union shape. Contract columns exist from the start so
+--     0003's partial index (post_id, normalized_resource_url) applies, while
+--     legacy draft-era ownership fields stay nullable for the pivot.
 create table public.submissions (
   id uuid primary key default gen_random_uuid(),
   post_id uuid references public.posts(id) on delete restrict,
-  proposed_post_url text not null,
-  proposed_resource_url text not null,
+  resource_id uuid references public.resources(id) on delete restrict,
+  resource_url text,
+  normalized_resource_url text,
+  resource_type text not null default 'unknown',
+  description text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  moderation_status text not null default 'pending' check (moderation_status in ('pending', 'approved', 'rejected')),
+  verification_method text,
+  submitted_by uuid references auth.users(id) on delete restrict,
+  -- Legacy draft-era fields, retained for compatibility (nullable).
+  proposed_post_url text,
+  proposed_resource_url text,
   normalized_post_key text,
   normalized_resource_key text,
-  resource_type text not null default 'unknown',
   title text,
-  contributor_id uuid not null references auth.users(id) on delete restrict,
-  resource_id uuid references public.resources(id) on delete restrict,
-  status public.submission_status not null default 'received',
+  contributor_id uuid references auth.users(id) on delete restrict,
   submission_note text,
   rejection_reason_code text,
   reward_eligibility text not null default 'undetermined' check (reward_eligibility in ('undetermined', 'eligible', 'ineligible', 'under_review')),
@@ -165,6 +200,11 @@ create table public.resource_versions (
   unique (resource_id, version_number)
 );
 
+-- (5) Ledger + redemptions on the draft shape, which matches 0006's
+--     create-if-not-exists definitions column-for-column (enum labels cover
+--     every value 0006's functions write). Reward flow stays dormant per the
+--     owner's model (REDEMPTIONS_ENABLED=0); the tables exist so the
+--     dormant console tabs and future re-enable have a stable substrate.
 create table public.reward_ledger (
   id uuid primary key default gen_random_uuid(),
   contributor_id uuid not null references auth.users(id) on delete restrict,
@@ -300,4 +340,3 @@ alter table public.outbox_jobs enable row level security;
 -- No client policies are intentionally created in this foundation migration.
 -- Public lookup and contributor access will be exposed through narrowly scoped server APIs.
 -- Never expose the Supabase service-role key in browser code or public environment variables.
-

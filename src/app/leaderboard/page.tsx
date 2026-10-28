@@ -9,7 +9,7 @@ import { PROMO_MIN_LINKS, PROMO_TOP_N } from '@/lib/site';
  * links are GENUINE and live right now. Nothing here is projected, estimated,
  * or fake: an empty board shows an honest empty state.
  */
-export const revalidate = 15;
+export const dynamic = 'force-dynamic';
 
 const PROMO_WINDOW_TEXT = 'a day';
 

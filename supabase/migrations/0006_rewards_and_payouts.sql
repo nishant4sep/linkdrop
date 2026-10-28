@@ -3,7 +3,7 @@
 -- and safe on BOTH schema shapes:
 --   * A fresh database where supabase/schema.sql ran first: every table exists
 --     already (enum-typed) and the statements below are no-ops.
---   * The live database built from migrations 0002→0005 only: the enum types
+--   * The live database built from migrations 0002->0005 only: the enum types
 --     and the financial tables never existed there, so this migration builds
 --     them text+CHECK instead (the enums are intentionally NOT referenced).
 --
@@ -230,7 +230,7 @@ declare
   v_resource_id uuid := null;
   v_review_id uuid;
   v_new_status text;
-  v_reward_amount numeric := pg_catalog.least(pg_catalog.greatest(p_reward_points, 0), 100000);
+  v_reward_amount numeric := least(greatest(p_reward_points, 0::numeric), 100000::numeric);
 begin
   if p_decision not in ('approve', 'reject') then
     raise exception using errcode = '22023', message = 'invalid_decision';
@@ -384,7 +384,7 @@ begin
   if p_amount is null then
     raise exception using errcode = '22023', message = 'invalid_amount';
   end if;
-  v_amount := pg_catalog.least(pg_catalog.greatest(p_amount, 0), 100000);
+  v_amount := least(greatest(p_amount, 0::numeric), 100000::numeric);
   if v_amount < 1 or pg_catalog.floor(v_amount) <> v_amount then
     raise exception using errcode = '22023', message = 'invalid_amount';
   end if;
@@ -508,7 +508,7 @@ begin
   v_clean_reference := nullif(pg_catalog.btrim(p_payout_reference), '');
 
   update public.reward_redemptions
-  set status = v_new_status,
+  set status = v_new_status::public.redemption_status,
       reviewed_by = p_reviewer_id,
       decided_at = pg_catalog.clock_timestamp(),
       decision_reason = coalesce(v_clean_reason, decision_reason),

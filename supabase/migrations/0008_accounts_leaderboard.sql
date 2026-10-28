@@ -4,9 +4,9 @@
 --   * NO points, NO rewards earning. The leaderboard ranks contributors by the
 --     NUMBER of GENUINE links that are live right now (status = 'active' and
 --     not demo), attributed to their account. Rejects, reports, and permanent
---     removals automatically drop out of the count — no side-ledger to keep
+--     removals automatically drop out of the count - no side-ledger to keep
 --     in sync, the count is computed live from the same rows users see.
---   * Accounts are username + password only (no email) — the auth email is
+--   * Accounts are username + password only (no email) - the auth email is
 --     synthesized as <username>@users.linkdrop.internal and never exposed.
 --   * Top-of-the-leaderboard names may promote their own ad through the
 --     promotion_requests flow, subject to owner approval and guidelines; a
@@ -59,7 +59,7 @@ create index if not exists resources_submitter_status_idx
 
 -- ---------------------------------------------------------------------------
 -- 2. public_leaderboard_top: genuine current live links per username.
---    Ties: earlier first link wins, then alphabetical — fully deterministic.
+--    Ties: earlier first link wins, then alphabetical - fully deterministic.
 -- ---------------------------------------------------------------------------
 create or replace function public.leaderboard_top(p_limit integer default 50)
 returns table (
@@ -196,7 +196,7 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- 5. submit_public_link: same behaviour, plus optional account attribution.
---    Recreated (drop + create) so exactly ONE signature exists — the app is
+--    Recreated (drop + create) so exactly ONE signature exists - the app is
 --    the only caller.
 -- ---------------------------------------------------------------------------
 drop function if exists public.submit_public_link(text, text, text, text, text, text, text);
@@ -261,7 +261,7 @@ begin
   end if;
 
   insert into public.posts (platform, canonical_url, platform_post_id, canonical_post_id)
-  values (p_platform, p_canonical_post_url, p_post_code, p_post_code)
+  values (p_platform::public.platform_type, p_canonical_post_url, p_post_code, p_post_code)
   on conflict (platform, canonical_url)
   do update set last_seen_at = now()
   returning id into v_post_id;
@@ -513,7 +513,7 @@ begin
   end if;
 
   insert into public.audit_logs (actor_id, action, entity_type, entity_id, reason_code, safe_metadata)
-  values (p_reviewer_id, 'promotion_' || p_action, 'promotion_requests', p_request_id,
+  values (p_reviewer_id, 'promotion_' || p_action, 'promotion_requests', p_request_id, p_action,
           jsonb_build_object('note', p_note, 'hours', p_hours));
 
   return pg_catalog.jsonb_build_object('status', p_action, 'activeUntil', case when p_action in ('approve', 'extend') then v_until end);
