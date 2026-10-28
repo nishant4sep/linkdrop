@@ -1,134 +1,113 @@
+<div align="center">
+
 # LinkDrop
 
-Community-powered directory for resource links associated with Instagram posts and Reels. Search a post → if the resource is missing, anyone can add it anonymously → it publishes **instantly**. A single report hides a link until the owner reviews it. No accounts required to contribute, no scraping, no private DMs.
+**Find the resource behind any Instagram post.**
 
-## Phase 2b (2026-10-27, later the same day): monetized placements + owner console
+A community directory of resource links for Instagram posts and Reels, with a live contributor leaderboard.
 
-- **Sponsored search gate** (`src/components/sponsor-gate.tsx` + `GET /api/public/sponsor`): clicking “Find resource” opens a 5-second skippable interstitial. When a promotion is live it shows that ad (`rel="nofollow sponsored"`, honest fine print); otherwise it shows the “slot is earned, not bought” house card. It never invents ad content. Knobs: `SKIP_SECONDS`, `COOLDOWN_MS` (per-visitor frequency cap).
-- **Live presence pulse** (`src/components/live-presence.tsx`): real “people here right now” counter via Supabase Realtime presence. If Realtime is unavailable it renders nothing — LinkDrop never shows a fabricated viewer number.
-- **Owner console Overview tab** (`GET /api/admin/overview` + `console/overview-tab.tsx`): live directory health (resources, covered posts, attributed links, last add), report volume, promo pipeline, and the current podium — clickable into the queues.
-- Fair-play messaging across the home page, gate, and leaderboard: rank is computed automatically from genuinely-live links; no payments, no bidding — only owner content-vetting.
+[**Live demo**](https://linkdrop.nishvnt.workers.dev/) · [Report an issue](https://github.com/nishant4sep/linkdrop/issues)
 
-## Phase 2 (2026-10-27): username accounts, live leaderboard, earned promo slots — count-based, no points
+![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflare&logoColor=white)
 
-There is **no points economy and no earning** anywhere in phase 2. The loop:
-
-1. Share genuine links through the normal anonymous instant-publish form — signed in or not. It publishes instantly either way.
-2. Signed-in submissions get **credited**: creating an account is just a **username + password** (no email; the auth identity is a synthesized `@users.linkdrop.internal` alias that is never shown, never emailed, never exposed). The account page lists every link the user submitted and their live standing.
-3. `/leaderboard` ranks contributors **live** by the number of their links that are *genuine and currently live*. A reported (hidden) or permanently removed link drops out of the count automatically — no side-ledger to keep in sync; the count is computed from the same rows visitors see. Ties break by earliest first genuine link.
-4. The **sponsor slot** on the home page (and a slim strip on landing pages) is **earned, not bought**: a top contributor (inside the top 3 with ≥ 5 live links — tunable via `PROMO_TOP_N` / `PROMO_MIN_LINKS` in `src/lib/site.ts`) can paste their own promotion (headline + direct https:// link, guidelines enforced). It lands *pending* in the console **Promotions** tab; once the owner approves, it renders for ~24 hours **and only while the user is still on top**, with `rel="nofollow sponsored"`.
-5. Live counters on the home page show the real number of active resources and covered posts (`public_stats` RPC). Zero stays zero — no placeholders, no fake numbers.
-6. Turnstile remains optional: set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET` and signup/report/submit all require the widget, **failing closed** on any uncertainty.
-
-Everything above is backed by `supabase/migrations/0008_accounts_leaderboard.sql`: `profiles.username` (unique, `^[a-z0-9_]{3,20}$`), username-created IP hash, optional `p_submitter_id` attribution in `submit_public_link`, the `leaderboard_top` / `public_stats` / `contributor_rank` / `submit_promotion` / `admin_promotion_decide` / `active_promotion` RPCs (security definer, revoked from public roles, eligibility enforced **inside SQL**), and the `promotion_requests` table (RLS on, service-role only).
+</div>
 
 ---
 
-This is the 2026-10-27 pivot: growth over ceremony. The old account + reward system still exists in the codebase, but it is **dormant** — cash payouts stay disabled (`REDEMPTIONS_ENABLED=0`) and the ledger machinery is retained untouched.
+## What is LinkDrop?
+
+Someone posts a Reel and says "link in bio" or "DM me for the link." LinkDrop is where the community collects those links in one searchable place.
+
+Paste an Instagram post URL. If the resource has been added, you see it. If not, you can add it yourself and it goes live instantly. No scraping, no private DMs.
+
+## How it works
+
+1. **Search** an Instagram post, Reel, or IGTV URL.
+2. **Find** the resource link, or **add it** if it's missing. It publishes immediately.
+3. **Report** a bad link. One report hides it until the owner reviews it.
+4. **Sign in** (optional) to get credit and climb the leaderboard.
+
+## Features
+
+- **Instant publishing.** Anyone can add a link, with or without an account.
+- **Report and review.** One report hides a link right away. The owner then reinstates or removes it.
+- **Username accounts.** Sign up with just a username and password. No email needed.
+- **Live leaderboard.** Contributors are ranked by how many of their links are genuine and currently live. Reported or removed links drop out automatically.
+- **Earned promo slot.** Top contributors can request a promotion, which goes live only after owner approval and only while they stay on top. Not for sale.
+- **Search-friendly pages.** Every post gets its own page at `/r/[code]` with metadata, canonical URLs, and a sitemap.
+- **Honest numbers.** Counters show real database values. Zero stays zero.
+- **Anti-abuse basics.** Honeypot field, rate limits, optional Cloudflare Turnstile, and IPs stored only as salted hashes.
+
+## Tech stack
+
+| | |
+|---|---|
+| Framework | Next.js (TypeScript) |
+| Styling | Tailwind CSS |
+| Database and auth | Supabase |
+| Hosting | Cloudflare Workers via [OpenNext](https://opennext.js.org/cloudflare) |
 
 ## Run locally
-1. Install Node.js 20.9+ and npm.
-2. Run `npm install`.
-3. Create a Supabase project and apply every migration in `supabase/migrations/` **in numeric order** (`0001_core_schema.sql` → `0008_accounts_leaderboard.sql`). `0001` recreates the foundational P0 schema for brand-new projects; `0002`–`0008` then reconcile and add the anonymous pivot, accounts, and leaderboard. `supabase/schema.sql` stays the reference draft — never run it ON TOP of a database that already has 0001 (they are the same starting point; 0001 is its executable form).
-4. Copy `.env.example` to `.env.local`. Fill in the Supabase project URL, the publishable anon key, and the server-only service-role key. Administrator access is controlled by the `admin_users` table allowlist, not a shared token — add your own user ID there.
-5. If port 3000 is occupied on your machine, run `npm run dev -- -p 3002` (or any free port). The console is at `http://localhost:PORT/admin` and also on `dashboard.localhost:PORT`.
 
-> ⚠️ A historical revision of `.env.example` contained what looked like live
-> Supabase keys. If any of those were real, rotate them: they must be treated
-> as compromised.
+Requires Node.js 20.9+.
+
+```bash
+git clone https://github.com/nishant4sep/linkdrop.git
+cd linkdrop
+npm install
+cp .env.example .env.local
+```
+
+1. Create a Supabase project.
+2. Apply every file in `supabase/migrations/` in numeric order (`0001` to `0008`).
+3. Fill in `.env.local` (see [Environment variables](#environment-variables)).
+4. Add your user ID to the `admin_users` table. Publishing stays closed until an admin exists.
+5. Start the dev server:
+
+```bash
+npm run dev
+```
+
+The owner console is at `/admin`.
+
+### Optional: demo data
+
+```bash
+npm run demo:seed     # add clearly flagged demo posts and resources
+npm run demo:remove   # delete all demo data
+```
+
+Demo rows are excluded from stats and the leaderboard. Remove them before launch. See [`docs/PHASE1_RUNBOOK.md`](docs/PHASE1_RUNBOOK.md).
+
+## Environment variables
+
+| Variable | Where | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | build and runtime | Required |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | build and runtime | Required |
+| `SUPABASE_SERVICE_ROLE_KEY` | runtime secret | Required. Bypasses RLS. Never expose it publicly. |
+| `NEXT_PUBLIC_SITE_URL` | build and runtime | Your production URL |
+| `IP_HASH_SALT` | runtime secret | Recommended |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | optional | Enables Turnstile on signup, report, and submit |
+| `REDEMPTIONS_ENABLED` | runtime | Keep `0` |
 
 ## Deploy to Cloudflare Workers
 
-The app ships as a Next.js SSR app on Cloudflare Workers via the OpenNext adapter (`@opennextjs/cloudflare`). `wrangler.jsonc` + `open-next.config.ts` are committed — no R2 cache binding needed at this scale.
-
-**Build settings** (Workers & Pages → linkdrop → Settings → Build):
-
-| Field | Value |
+| Setting | Value |
 |---|---|
 | Build command | `npx opennextjs-cloudflare build` |
 | Deploy command | `npx opennextjs-cloudflare deploy` |
 
-**Build variables** (Settings → Build → Build variables — baked into the client bundle at build time): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` (and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` when Turnstile is enabled).
+Add the variables above in your Cloudflare project settings. Runtime variable changes apply only to **new deployments**, so retry the latest deployment or push to `main` after changing them.
 
-**Runtime variables and secrets** (Settings → Variables and Secrets, Production tab):
+After deploying, check that the home counters load, `/leaderboard` ranks correctly, an anonymous add publishes, a report hides a link, and `/admin` opens for an admin account. If a route errors, the first line in **Observability, Logs** usually names the missing variable.
 
-| Name | Type | Notes |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Variable | required — the server-side client (`src/lib/server.ts`) reads it by dynamic name at runtime, so build variables alone are not enough |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Variable | required — same reason; used by the auth routes |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | required — bypasses RLS; never put it in a `NEXT_PUBLIC_*` variable |
-| `NEXT_PUBLIC_SITE_URL` | Variable | workers.dev URL now, real domain later |
-| `IP_HASH_SALT` | **Secret** | recommended; rotating it resets IP-hash history |
-| `REDEMPTIONS_ENABLED` | Variable | `0` — keeps payouts dormant |
+## Project notes
 
-`APP_ORIGIN` stays unset: same-origin requests are allowed automatically, and an external origin is only added when the env var is present.
+- Cash payouts and the old points ledger still exist in the code but are **disabled**. The leaderboard is count-based only.
+- This is an MVP, not a security audit. Before real traffic, consider Turnstile, link-threat scanning, monitoring, backups, and a legal review of `/terms`, `/privacy`, and `/dmca` (replace the `YOUR-*-EMAIL` placeholders in `src/lib/site.ts`).
+- Do not fetch arbitrary submitted URLs from the server (SSRF risk).
 
-**Redeploys:** runtime variables and secrets apply only to **fresh deployments**. Changing them in the dashboard does nothing to the currently running Worker — retry the latest deployment (Deployments → `…` → Retry deployment) or push any commit to `main`; Cloudflare rebuilds on push.
-
-**Live checklist after a deploy:** home counters render honest DB numbers → `/leaderboard` ranks by currently-live links → resolver/`/r/[code]` work → login works → an anonymous add publishes instantly and a report hides it → `/admin` console reachable with an `admin_users` account. If a route 500s or shows a graceful "temporarily unavailable" message, the first line in **Observability → Logs** names the missing variable or RPC error.
-
-## How the directory works
-```
-someone searches an Instagram post
-  ├─ found    → resource card(s) shown, with a one-tap "Report this link"
-  └─ not yet  → anonymous "add it" form (honeypot + rate limits server-side)
-                publishing is INSTANT — no pending state, no moderation delay
-any visitor can report → the resource is hidden immediately ("disputed")
-                         → the owner reviews every report in the console
-                         → Reinstate (live again) or Remove (delisted forever)
-```
-Anti-abuse layers on anonymous publishing: hidden `company` honeypot field, per-IP limit 5 submissions/hour, global limit 120/hour, optional Cloudflare Turnstile (it fails closed once configured), duplicate protection inside one race-safe database RPC, and IP addresses stored **only** as salted SHA-256 hashes, never raw.
-
-Why not auto-ban IPs after reports: a single carrier-NAT IP can be thousands of real people, and a 3-strike auto-block is a griefing weapon. Enforcement stays a human decision in the console.
-
-Signup/login (`POST /api/auth/username`) has its own layers: honeypot, per-IP signup limit 5/h (login 15/h), reserved-name lockout, shape-validated usernames `[a-z0-9_]{3,20}`, and the optional Turnstile. A legacy **email** account (the owner's, or pre-pivot contributors) still signs in by typing the email into the username field on the sign-in tab.
-
-## What works (phases 1 + 2)
-- Instagram Reel, post, and IGTV URL validation and normalization.
-- Anonymous instant-publish submissions (`/api/public/submit`) with the protections above; a `no_admin_configured` database guard keeps publishing closed until an admin exists. Optional account attribution via bearer token (`p_submitter_id`), validated server-side against the active profile.
-- One-report auto-hide (`/api/report` → `report_resource` RPC): each visitor can report a resource once; the first report flips it to `disputed`, which every resolver and the SEO landing page filter out.
-- Per-post SEO landing pages at `/r/[code]` with `generateMetadata`, canonical URLs, OpenGraph, and a JSON-LD `ItemList` — this is where search traffic lands; plus the live sponsor strip.
-- `sitemap.xml` (home, `/leaderboard`, every post with an active resource) and `robots.txt` (`/api/`, `/admin`, `/dashboard`, `/login` disallowed; `/leaderboard` indexable).
-- Anonymous resolver (`/api/resolve`) returns only `active` resources plus the post code so the UI can link to `/r/[code]`.
-- Username accounts (`POST /api/auth/username`), account page (`/dashboard`) with submitted links + live rank, public `/leaderboard` (server-rendered, ~15 s freshness), promotion request/evaluate flow for eligible contributors.
-- Owner console (`/admin`, Reports + **Promotions** active; Moderation/Contributors/Payouts labelled dormant).
-- Live counters + sponsor slot on the home page, all database-computed.
-- HTTPS-only resource destinations, atomic moderation, database-backed rate limiting, baseline security headers.
-
-## Demo content (phase 1 only — strip before launch)
-Seed clearly-flagged demo posts/resources to exercise the whole loop — full owner walkthrough in `docs/PHASE1_RUNBOOK.md`:
-
-```bash
-npm run demo:seed     # 4 demo posts, 6 resources, 1 pre-quarantined resource + report
-npm run demo:remove   # deletes every is_demo row, in FK-safe order
-```
-
-- Every demo row carries `is_demo = true` and URLs on `example.com`, so demo data can never be confused with real contributions — and demo rows are excluded from stats, the leaderboard, and promo eligibility by SQL.
-- **Publishing rule: demo data must be removed before launch.** Counters and the leaderboard may only ever show real numbers — seeding fake traffic numbers as real would be the "claim big" trap.
-
-## Rewards and payouts (dormant, owner-controlled)
-- **Cash payouts remain OFF.** The pivot killed the cash-for-links loop because anonymous instant publishing changes the threat model completely; link quality is now enforced by reports, not by payouts. Set `REDEMPTIONS_ENABLED=1` to reopen contributor payouts.
-- **There is no points earning in phase 2** (owner decision: count-based leaderboard only). The 0006 ledger machinery (25 points per approval, atomic reservations, append-only ledger) is untouched and idle; nothing in the phase-2 UI references it.
-- If it is ever reopened: contributors earn 25 points (`v1`) on approval credited atomically with idempotency keys, balances computed in-database from the append-only ledger, payout requests reserved under an advisory lock, owner marks paid/progress/rejected in the console.
-
-## Owner console subdomain
-Any host starting with `dashboard.` is rewritten by `src/middleware.ts` to the console at `/admin`. To use it in production:
-
-1. Point `dashboard.example.com` (CNAME) to the same deployment as the apex domain.
-2. The console is a regular route — no special build. Access stays protected by the `admin_users` allowlist plus Supabase Auth.
-3. Locally, `dashboard.localhost:PORT` resolves to 127.0.0.1 on modern systems, so you can exercise the exact production behavior during development.
-
-## Before public launch
-Follow `docs/PHASE1_RUNBOOK.md` (apply migrations → `npm run check:db` → `demo:seed` → rehearse → `demo:remove`).
-
-This is an MVP, not a security audit. The rate limiter coordinates through a database RPC but should be load-tested. Still recommended: shared/bot protection at the edge (Turnstile in production is strongly advised once anonymous traffic becomes real), link-threat scanning, monitoring, backups, automated security tests, and legal review **before ever enabling cash-equivalent redemption** (`docs/archive/P4_PRIVACY_AND_CONTENT_POLICY.md`, `docs/archive/P3_REWARD_LEDGER_AND_INVARIANTS.md`). Do not fetch arbitrary submitted URLs from the server (SSRF risk).
-
-Legal pages (`/terms`, `/privacy`, `/dmca`) ship as honest plain-language drafts — review them, replace the `YOUR-*-EMAIL` placeholders in `src/lib/site.ts`, and have someone with local-law eyes on them before you call them final.
-
-Checklist before the first real user:
-1. Every migration applied (0001 → 0008); `npm run audit:contracts` passes; `npm run check:db` shows all expected columns and phase-2 RPCs.
-2. `npm run demo:remove` — zero demo rows left.
-3. An admin user exists in `admin_users` (otherwise publishing stays closed by design).
-4. Set `NEXT_PUBLIC_SITE_URL` to the production domain so `sitemap.xml`, `robots.txt`, and canonical URLs are correct.
-5. Optional hardening: `TURNSTILE_SECRET` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, dedicated `IP_HASH_SALT`.
-6. Submit the sitemap in Google Search Console once deployed at the real domain.
+More detail lives in [`docs/`](docs/).
