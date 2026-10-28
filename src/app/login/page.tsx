@@ -70,7 +70,7 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: mode,
+          action: mode === 'signin' ? 'login' : 'signup',
           username: username.trim(),
           password,
           company, // honeypot — always empty for humans
